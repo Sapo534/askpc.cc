@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}askpc.cc — Tech Knowledge & Community{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <header class="site-header">
+        <div class="container header-container">
+            <a href="/" class="logo">askpc.cc</a>
+            <nav class="main-nav">
+                <a href="/kb">Knowledge Base</a>
+                <a href="/forum">Forum</a>
+                <a href="/community">Community</a>
+            </nav>
+            <div class="header-actions">
+                {% if user %}
+                    <!-- Username links directly to Profile -->
+                    <a href="/u/{{ user.username }}" style="font-size: 0.9rem; font-weight: 600; margin-right: 12px; color: {{ user.custom_color if user.custom_color else 'inherit' }}">
+                        @{{ user.username }} <span class="badge badge-open" style="font-size:0.65rem;">{{ user.experience_badge }}</span>
+                    </a>
+                    <a href="/settings" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem; margin-right: 6px;">Settings</a>
+                    <a href="/auth/logout" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.8rem;">Log Out</a>
+                {% else %}
+                    <a href="/login" class="btn btn-outline">Log In</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="container" style="padding-top: 30px;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-container">
+            <p>&copy; 2026 askpc.cc</p>
+            <div class="footer-links">
+                <a href="/privacy">Privacy</a>
+                <a href="/rules">Rules</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Base — askpc.cc{% endblock %}
+
+{% block content %}
+<div class="kb-layout">
+    <aside class="tree-nav">
+        <details open>
+            <summary>Categories</summary>
+            <ul>
+                <li><a href="/kb" class="active">All Documentation</a></li>
+            </ul>
+        </details>
+    </aside>
+
+    <section class="kb-main">
+        <form action="/kb" method="GET" class="search-box">
+            <input type="text" name="q" value="{{ q or '' }}" placeholder="Search KB articles or #tags..." aria-label="Search KB">
+            <button type="submit">Search</button>
+        </form>
+
+        <div class="section-header">
+            <h2>Documentation Articles</h2>
+        </div>
+
+        <div class="card-list">
+            {% if articles %}
+                {% for article in articles %}
+                <article class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="card-category">{{ article.category | upper }}</span>
+                        <span class="badge badge-beginner">{{ article.difficulty }}</span>
+                    </div>
+                    
+                    <!-- Article Title Link -->
+                    <h3 class="card-title">
+                        <a href="/kb/{{ article.slug }}" style="font-weight: 600;">{{ article.title }}</a>
+                    </h3>
+                    
+                    <p class="card-desc">{{ article.content_markdown[:150] }}...</p>
+                    <span class="card-meta">Updated {{ article.updated_at.strftime('%Y-%m-%d') }}</span>
+                </article>
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-secondary); padding: 20px 0;">No articles published yet.</p>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}

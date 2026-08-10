@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}askpc.cc — Minimalist Tech Knowledge Base & Community{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1 class="hero-title">Minimalist Tech Knowledge Base & Forum</h1>
+    <p class="hero-subtitle">Clear solutions, technical docs, and open discussions without the clutter.</p>
+    
+    <form action="/forum" method="GET" class="search-box">
+        <input type="text" name="q" placeholder="Search articles, docs, or discussions..." aria-label="Search">
+        <button type="submit">Search</button>
+    </form>
+</section>
+
+<div class="content-grid">
+    <div class="primary-content">
+        
+        <!-- Knowledge Base Section -->
+        <section id="kb" class="section">
+            <div class="section-header">
+                <h2>Latest Docs</h2>
+                <a href="/kb" class="link-more">View all docs &rarr;</a>
+            </div>
+            <div class="card-list">
+                {% if articles %}
+                    {% for article in articles %}
+                    <a href="/kb" class="card">
+                        <span class="card-category">{{ article.category | upper }}</span>
+                        <h3 class="card-title">{{ article.title }}</h3>
+                        <p class="card-desc">{{ article.content_markdown[:120] }}...</p>
+                        <span class="card-meta">Updated {{ article.updated_at.strftime('%Y-%m-%d') }}</span>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">No articles published yet.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- Forum Section -->
+        <section id="forum" class="section">
+            <div class="section-header">
+                <h2>Recent Discussions</h2>
+                <a href="/forum" class="link-more">Go to forum &rarr;</a>
+            </div>
+            <div class="forum-list">
+                {% if threads %}
+                    {% for thread in threads %}
+                    <a href="/forum/thread/{{ thread.slug }}" class="forum-item">
+                        <div class="forum-info">
+                            <h3 class="forum-title">{{ thread.title }}</h3>
+                            <span class="forum-meta">
+                                {% for tag in thread.tags %}
+                                    <span class="tag">#{{ tag.name }}</span>
+                                {% endfor %}
+                            </span>
+                        </div>
+                        <span class="forum-time">{{ thread.created_at.strftime('%H:%M') }}</span>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">No discussions started yet.</p>
+                {% endif %}
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Sidebar -->
+    <aside id="community" class="sidebar">
+        <div class="sidebar-block">
+            <h3>Community Hub</h3>
+            <p class="sidebar-text">Join our chat channels to ask quick questions.</p>
+            <div class="community-links">
+                <a href="/community" class="btn btn-full">Matrix Space</a>
+                <a href="/community" class="btn btn-full btn-outline">Discord Server</a>
+            </div>
+        </div>
+    </aside>
+</div>
+{% endblock %}

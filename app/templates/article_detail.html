@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.title }} — askpc.cc{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    
+    <div style="margin-bottom: 20px;">
+        <a href="/kb" style="font-size: 0.85rem; color: var(--text-secondary);">&larr; Back to Knowledge Base</a>
+    </div>
+
+    <!-- Article Content -->
+    <article style="border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px;">
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+            <span class="card-category">{{ article.category | upper }}</span>
+            <span class="badge badge-beginner">{{ article.difficulty }}</span>
+            
+            {% for tag in article.tags %}
+                <a href="/tag/{{ tag.name }}" class="tag">#{{ tag.name }}</a>
+            {% endfor %}
+        </div>
+
+        <h1 style="font-size: 2rem; margin-bottom: 10px;">{{ article.title }}</h1>
+        
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 25px;">
+            Updated {{ article.updated_at.strftime('%Y-%m-%d') }} • 
+            <a href="https://github.com/Sapo534/askpc-kb" target="_blank" rel="noopener" style="text-decoration: underline; color: var(--text-primary);">
+                Edit or improve this page on GitHub &rarr;
+            </a>
+        </div>
+
+        <!-- Rendered Markdown Body -->
+        <div class="article-content">{{ article.content_markdown | markdown | safe }}</div>
+    </article>
+
+</div>
+{% endblock %}

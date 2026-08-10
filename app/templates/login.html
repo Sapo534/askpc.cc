@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log In — computer.help</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-container">
+            <a href="/" class="logo">computer.help</a>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="static-page" style="max-width: 400px; margin-top: 60px;">
+            <h1 style="text-align: center; margin-bottom: 20px;">Welcome Back</h1>
+            
+            {% if error %}
+            <div class="notice-banner" style="border-left-color: #ff0000; color: #ff0000; margin-bottom: 15px;">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            {% if request.query_params.get("registered") == "success" %}
+            <div class="notice-banner" style="border-left-color: #008800; color: #008800; margin-bottom: 15px;">
+                Account created successfully! Please log in below.
+            </div>
+            {% endif %}
+
+            <!-- OAuth Buttons -->
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                <a href="/auth/github" class="btn btn-outline" style="text-align: center;">Continue with GitHub</a>
+                <a href="/auth/google" class="btn btn-outline" style="text-align: center;">Continue with Google</a>
+                <a href="/auth/vk" class="btn btn-outline" style="text-align: center;">Continue with VK</a>
+            </div>
+
+            <div style="text-align: center; color: var(--text-secondary); margin-bottom: 20px;">or with password</div>
+
+            <form action="/auth/login" method="POST" style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="email" name="email" placeholder="Email address" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
+                <input type="password" name="password" placeholder="Password" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
+                <button type="submit" class="btn" style="width: 100%;">Sign In</button>
+            </form>
+
+            <p style="text-align: center; font-size: 0.85rem; margin-top: 20px; color: var(--text-secondary);">
+                Don't have an account? <a href="/register" style="text-decoration: underline;">Register</a>
+            </p>
+        </div>
+    </main>
+</body>
+</html>

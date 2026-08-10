@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}#{{ tag.name }} — askpc.cc{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <h1 style="font-size: 2rem; margin-bottom: 5px;">#{{ tag.name }}</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 30px;">All Knowledge Base articles and Forum discussions tagged with #{{ tag.name }}.</p>
+
+    <!-- Knowledge Base Articles Tagged -->
+    <section class="section">
+        <h2>Documentation Articles ({{ articles|length }})</h2>
+        <div class="card-list" style="margin-top: 15px;">
+            {% if articles %}
+                {% for article in articles %}
+                <article class="card">
+                    <span class="card-category">{{ article.category | upper }}</span>
+                    <h3 class="card-title"><a href="/kb">{{ article.title }}</a></h3>
+                    <p class="card-desc">{{ article.content_markdown[:150] }}...</p>
+                </article>
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">No documentation articles tagged with #{{ tag.name }}.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Forum Threads Tagged -->
+    <section class="section" style="margin-top: 40px;">
+        <h2>Forum Discussions ({{ threads|length }})</h2>
+        <div class="card-list" style="margin-top: 15px;">
+            {% if threads %}
+                {% for thread in threads %}
+                <div class="card">
+                    <a href="/forum/thread/{{ thread.slug }}" style="font-weight: 600; font-size: 1.1rem;">{{ thread.title }}</a>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">
+                        Score: {{ thread.score }} • Posted by @{{ thread.author.username }} • {{ thread.created_at.strftime('%Y-%m-%d') }}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">No forum discussions tagged with #{{ tag.name }}.</p>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}

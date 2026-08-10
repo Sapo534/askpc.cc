@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Forum — computer.help{% endblock %}
+
+{% block content %}
+
+<div class="notice-banner">
+    <strong>Community Notice:</strong> There are no stupid questions here. If you come here to say "RTFM", you will be muted.
+</div>
+
+
+<div class="forum-controls">
+    <!-- Search Bar on Forum Page -->
+    <form action="/forum" method="GET" class="search-box" style="margin-bottom: 0; flex: 1; max-width: 400px;">
+        <input type="text" name="q" value="{{ q or '' }}" placeholder="Search forum topics or #tags..." aria-label="Search Forum">
+    </form>
+
+<div class="forum-controls">
+    <div class="filter-group">
+        <button class="filter-btn active">Latest</button>
+    </div>
+    <!-- Clean check: redirect to /forum/new if logged in -->
+    <a href="{% if user %}/forum/new{% else %}/login{% endif %}" class="btn">+ New Topic</a>
+</div>
+
+<table class="forum-table">
+    <thead>
+        <tr>
+            <th>Topic</th>
+            <th class="forum-stats-col">Replies</th>
+            <th style="text-align: right;">Created</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if threads %}
+            {% for thread in threads %}
+            <tr>
+                <td>
+                    <span class="badge {% if thread.status == 'SOLVED' %}badge-solved{% else %}badge-open{% endif %}">{{ thread.status }}</span>
+                    <a href="/forum/thread/{{ thread.slug }}" style="font-weight: 600; margin-left: 5px;">{{ thread.title }}</a>
+		<div class="forum-meta" style="margin-top: 4px;">
+		    {% for tag in thread.tags %}
+			<a href="/tag/{{ tag.name }}" class="tag">#{{ tag.name }}</a>
+		    {% endfor %}
+		    • Author: 
+		    <a href="/u/{{ thread.author.username }}" style="color: {{ thread.author.custom_color if thread.author.custom_color else 'inherit' }}; font-weight: bold;">
+			@{{ thread.author.username if thread.author else 'anonymous' }}
+		    </a>
+		</div>
+		</td>
+                <td class="forum-stats-col">{{ thread.replies | length }}</td>
+                <td style="text-align: right; font-size: 0.8rem; color: var(--text-secondary);">{{ thread.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 40px 0;">
+                    No forum threads created yet. Be the first to start a topic!
+                </td>
+            </tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}

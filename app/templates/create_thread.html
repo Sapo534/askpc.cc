@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}New Topic — askpc.cc{% endblock %}
+
+{% block content %}
+<div class="static-page" style="max-width: 650px; margin-top: 20px;">
+    <h1>Create New Topic</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 25px;">Ask a question or share technical knowledge with the community.</p>
+
+    {% if error %}
+    <div class="notice-banner" style="border-left-color: #ff0000; color: #ff0000; margin-bottom: 20px;">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form action="/forum/new" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 20px;">
+        <div>
+            <label style="font-size: 0.85rem; font-weight: 600;">Title</label>
+            <input type="text" name="title" placeholder="e.g. How to optimize Hyprland battery consumption on Arch?" required style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; margin-top: 6px;">
+        </div>
+
+        <div>
+            <label style="font-size: 0.85rem; font-weight: 600;">Tags</label>
+            <input type="text" name="tags" placeholder="#arch #hyprland #battery" required style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; margin-top: 6px;">
+        </div>
+
+        <div>
+            <label style="font-size: 0.85rem; font-weight: 600;">Content (Markdown supported)</label>
+            <textarea name="content" rows="8" placeholder="Describe your issue or findings in detail..." required style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; margin-top: 6px; font-family: var(--font-sans);"></textarea>
+        </div>
+
+        <!-- Attachment Upload Field -->
+        <div>
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Attach File (Code, Logs, Docs, Images — Max 5MB)</label>
+            <input type="file" name="attachment" style="font-size: 0.85rem;">
+        </div>
+
+        <div style="display: flex; gap: 15px;">
+            <button type="submit" class="btn">Publish Topic</button>
+            <a href="/forum" class="btn btn-outline">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

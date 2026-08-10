@@ -1,0 +1,21 @@
+# Security & Environment variables
+.env
+*.env
+
+# Virtual environments
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local upload data
+app/static/avatars/*
+!app/static/avatars/.gitkeep
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+
+# Local test vaults & databases
+obsidian_vault/
+test.db
