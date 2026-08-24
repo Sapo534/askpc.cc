@@ -19,7 +19,6 @@
     </div>
     {% endif %}
 
-    <!-- 1. General Profile Form -->
     <form action="/settings" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
         <div>
             <label style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 8px;">Profile Avatar</label>
@@ -55,7 +54,6 @@
             <textarea name="bio" rows="3" maxlength="1000" placeholder="Arch Linux user, self-hosting enthusiast..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">{{ user.bio or '' }}</textarea>
         </div>
 
-        <!-- Sponsor Color Picker -->
         <div>
             <label style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 6px;">
                 Sponsor Username Color 
@@ -79,7 +77,6 @@
         <button type="submit" class="btn">Save Profile Settings</button>
     </form>
 
-    <!-- 2. Security: Username Change -->
     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
         <h3>Change Username</h3>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Can be changed once every 14 days.</p>
@@ -89,7 +86,6 @@
         </form>
     </div>
 
-    <!-- 3. Security: Email Change -->
     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <h3>Email Address</h3>
@@ -106,7 +102,6 @@
         </form>
     </div>
 
-    <!-- 4. Security: Password Change -->
     <div>
         <h3>Change Password</h3>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Can be changed once every 14 days.</p>

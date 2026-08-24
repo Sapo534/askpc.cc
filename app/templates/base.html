@@ -18,7 +18,6 @@
             </nav>
             <div class="header-actions">
                 {% if user %}
-                    <!-- Username links directly to Profile -->
                     <a href="/u/{{ user.username }}" style="font-size: 0.9rem; font-weight: 600; margin-right: 12px; color: {{ user.custom_color if user.custom_color else 'inherit' }}">
                         @{{ user.username }} <span class="badge badge-open" style="font-size:0.65rem;">{{ user.experience_badge }}</span>
                     </a>

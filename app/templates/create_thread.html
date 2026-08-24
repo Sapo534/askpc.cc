@@ -7,6 +7,12 @@
     <h1>Create New Topic</h1>
     <p style="color: var(--text-secondary); margin-bottom: 25px;">Ask a question or share technical knowledge with the community.</p>
 
+    {% if not user.is_email_verified %}
+    <div class="notice-banner" style="border-left-color: #ffaa00; margin-bottom: 20px;">
+        ⚠️ <strong>Email Verification Required:</strong> Please <a href="/settings" style="text-decoration: underline;">verify your email address in settings</a> before posting new topics.
+    </div>
+    {% endif %}
+
     {% if error %}
     <div class="notice-banner" style="border-left-color: #ff0000; color: #ff0000; margin-bottom: 20px;">
         {{ error }}
@@ -29,14 +35,13 @@
             <textarea name="content" rows="8" placeholder="Describe your issue or findings in detail..." required style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; margin-top: 6px; font-family: var(--font-sans);"></textarea>
         </div>
 
-        <!-- Attachment Upload Field -->
         <div>
             <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 4px;">Attach File (Code, Logs, Docs, Images — Max 5MB)</label>
             <input type="file" name="attachment" style="font-size: 0.85rem;">
         </div>
 
         <div style="display: flex; gap: 15px;">
-            <button type="submit" class="btn">Publish Topic</button>
+            <button type="submit" class="btn" {% if not user.is_email_verified %}disabled style="opacity:0.5; cursor:not-allowed;"{% endif %}>Publish Topic</button>
             <a href="/forum" class="btn btn-outline">Cancel</a>
         </div>
     </form>

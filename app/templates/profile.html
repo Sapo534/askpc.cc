@@ -8,7 +8,6 @@
     <!-- Profile Card Header -->
     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px;">
         
-        <!-- Top Row: Avatar + Main User Info -->
         <div style="display: flex; gap: 25px; align-items: center; margin-bottom: 20px;">
             <img src="{{ profile_user.avatar_url }}" alt="Avatar" style="width: 90px; height: 90px; border-radius: 50%; border: 1px solid var(--border-color); object-fit: cover; flex-shrink: 0;">
             
@@ -17,7 +16,6 @@
                     @{{ profile_user.username }}
                 </h1>
                 
-                <!-- Badges List -->
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
                     {% if profile_user.system_role != 'user' %}
                         <span class="badge badge-solved" style="background:#111;">{{ profile_user.system_role | upper }}</span>
@@ -30,7 +28,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Karma & Joined Info -->
                 <div style="font-size: 0.9rem; color: var(--text-secondary);">
                     Karma: <strong style="color: var(--text-primary);">{% if profile_user.karma > 0 %}+{% endif %}{{ profile_user.karma }}</strong> 
                     • Joined {{ profile_user.created_at.strftime('%b %Y') }}
@@ -38,16 +35,21 @@
             </div>
         </div>
 
-	<!-- Seamless Clickable Bio -->
-	{% if profile_user.bio %}
-	    {% if profile_user.bio|length > 200 %}
-		<details class="bio-expandable" style="margin-top: 15px;">
-		    <summary class="user-bio" style="cursor: pointer; outline: none; font-size: 0.95rem; color: var(--text-secondary);"><span class="bio-preview">{{ profile_user.bio[:200].strip() }}...</span><span class="bio-full">{{ profile_user.bio.strip() }}</span></summary>
-		</details>
-	    {% else %}
-		<p class="user-bio" style="margin-top: 15px; font-size: 0.95rem; color: var(--text-secondary);">{{ profile_user.bio.strip() }}</p>
-	    {% endif %}
-	{% endif %}
+        {% if profile_user.bio %}
+            {% if profile_user.bio|length > 200 %}
+                <details class="bio-expandable" style="margin-top: 15px;">
+                    <summary class="user-bio" style="cursor: pointer; outline: none; font-size: 0.95rem; color: var(--text-secondary);"><span class="bio-preview">{{ profile_user.bio[:200].strip() }}...</span><span class="bio-full">{{ profile_user.bio.strip() }}</span></summary>
+                </details>
+            {% else %}
+                <p class="user-bio" style="margin-top: 15px; font-size: 0.95rem; color: var(--text-secondary);">{{ profile_user.bio.strip() }}</p>
+            {% endif %}
+        {% endif %}
+
+        <!-- Account Public ID at Bottom of Profile -->
+        <div style="margin-top: 25px; font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-secondary);">
+            Account ID: {{ profile_user.public_id }}
+        </div>
+
     </div>
 
     <!-- Threads by User -->
@@ -58,7 +60,7 @@
             <div class="card">
                 <a href="/forum/thread/{{ thread.slug }}" style="font-weight: 600; font-size: 1.1rem; word-break: break-word;">{{ thread.title }}</a>
                 <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">
-                    Score: {{ thread.score }} • Created {{ thread.created_at.strftime('%Y-%m-%d') }}
+                    ID: {{ thread.public_id }} • Score: {{ thread.score }} • Created {{ thread.created_at.strftime('%Y-%m-%d') }}
                 </div>
             </div>
             {% endfor %}

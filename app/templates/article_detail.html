@@ -9,11 +9,11 @@
         <a href="/kb" style="font-size: 0.85rem; color: var(--text-secondary);">&larr; Back to Knowledge Base</a>
     </div>
 
-    <!-- Article Content -->
     <article style="border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px;">
         <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
             <span class="card-category">{{ article.category | upper }}</span>
             <span class="badge badge-beginner">{{ article.difficulty }}</span>
+            <span class="badge badge-open" style="font-size: 0.7rem;">License: {{ article.license }}</span>
             
             {% for tag in article.tags %}
                 <a href="/tag/{{ tag.name }}" class="tag">#{{ tag.name }}</a>
@@ -29,7 +29,6 @@
             </a>
         </div>
 
-        <!-- Rendered Markdown Body -->
         <div class="article-content">{{ article.content_markdown | markdown | safe }}</div>
     </article>
 

@@ -12,6 +12,11 @@
     <!-- Main Thread View -->
     <article style="border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px;">
         
+        <!-- Thread Public ID -->
+        <div style="font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-secondary); margin-bottom: 6px;">
+            ID: {{ thread.public_id }}
+        </div>
+
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
             {% if user %}
             <form action="/forum/thread/{{ thread.slug }}/vote" method="POST" style="display:inline;">
@@ -31,7 +36,6 @@
 
             <span class="badge {% if thread.status == 'SOLVED' %}badge-solved{% else %}badge-open{% endif %}" style="margin-left: 10px;">{{ thread.status }}</span>
             
-            <!-- Clickable Unified Tags -->
             {% for tag in thread.tags %}
                 <a href="/tag/{{ tag.name }}" class="tag">#{{ tag.name }}</a>
             {% endfor %}
@@ -48,10 +52,8 @@
             on {{ thread.created_at.strftime('%Y-%m-%d %H:%M') }}
         </div>
 
-        <!-- Markdown Content -->
         <div class="article-content">{{ thread.content | markdown | safe }}</div>
 
-        <!-- Attachment Box -->
         {% if thread.attachment_url %}
         <div style="margin-top: 20px; padding: 12px 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 4px; display: inline-block;">
             <strong style="font-size: 0.85rem;">📎 Attached File:</strong> 
@@ -70,6 +72,11 @@
             {% for reply in replies %}
             <div style="padding: 15px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 15px; background: var(--bg-secondary);">
                 
+                <!-- Reply Public ID -->
+                <div style="font-size: 0.7rem; font-family: var(--font-mono); color: var(--text-secondary); margin-bottom: 4px;">
+                    ID: {{ reply.public_id }}
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <div style="font-size: 0.85rem; color: var(--text-secondary);">
                         <a href="/u/{{ reply.author.username }}" style="color: {{ reply.author.custom_color if reply.author.custom_color else 'inherit' }}; font-weight: bold;">
@@ -118,17 +125,22 @@
 
     <!-- Reply Form -->
     {% if user %}
-    <section style="border-top: 1px solid var(--border-color); padding-top: 25px;">
-        <h4 style="margin-bottom: 12px;">Leave a reply</h4>
-        <form action="/forum/thread/{{ thread.slug }}/reply" method="POST" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:12px;">
-            <textarea name="content" rows="4" placeholder="Write your reply here..." required style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; font-family: var(--font-sans);"></textarea>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <input type="file" name="attachment" style="font-size: 0.85rem;">
-                <button type="submit" class="btn">Post Reply</button>
-            </div>
-        </form>
-    </section>
+        {% if user.is_email_verified %}
+        <section style="border-top: 1px solid var(--border-color); padding-top: 25px;">
+            <h4 style="margin-bottom: 12px;">Leave a reply</h4>
+            <form action="/forum/thread/{{ thread.slug }}/reply" method="POST" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:12px;">
+                <textarea name="content" rows="4" placeholder="Write your reply here..." required style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; font-family: var(--font-sans);"></textarea>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <input type="file" name="attachment" style="font-size: 0.85rem;">
+                    <button type="submit" class="btn">Post Reply</button>
+                </div>
+            </form>
+        </section>
+        {% else %}
+        <div class="notice-banner" style="border-left-color: #ffaa00;">
+            Please <a href="/settings" style="text-decoration: underline;">verify your email address</a> in settings to reply to discussions.
+        </div>
+        {% endif %}
     {% else %}
     <div class="notice-banner">
         Please <a href="/login" style="text-decoration: underline;">log in</a> to post a reply.

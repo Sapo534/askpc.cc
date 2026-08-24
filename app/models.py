@@ -1,10 +1,12 @@
+import secrets
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
-# --- UNIFIED TAGS ARCHITECTURE ---
+def gen_id(prefix: str) -> str:
+    return f"{prefix}_{secrets.token_hex(4)}"
 
 class Tag(Base):
     __tablename__ = "tags"
@@ -21,12 +23,11 @@ class ThreadTag(Base):
     thread_id = Column(Integer, ForeignKey("forum_threads.id"), primary_key=True)
     tag_id = Column(Integer, ForeignKey("tags.id"), primary_key=True)
 
-# --- USER & CONTENT MODELS ---
-
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(String(20), unique=True, index=True, default=lambda: gen_id("usr"))
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=True)
@@ -41,13 +42,13 @@ class User(Base):
     
     is_email_verified = Column(Boolean, default=False)
     email_verification_token = Column(String(100), nullable=True)
+    reset_password_token = Column(String(100), nullable=True)
+    reset_password_expiry = Column(DateTime, nullable=True)
     last_username_change = Column(DateTime, nullable=True)
     last_email_change = Column(DateTime, nullable=True)
     last_password_change = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
-    reset_password_token = Column(String(100), nullable=True)
-    reset_password_expiry = Column(DateTime, nullable=True)
 
 class Article(Base):
     __tablename__ = "articles"
@@ -55,8 +56,10 @@ class Article(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     slug = Column(String(255), unique=True, index=True, nullable=False)
+    file_path = Column(String(255), unique=True, index=True, nullable=True)
     category = Column(String(50), index=True, default="General")
     difficulty = Column(String(20), default="Beginner")
+    license = Column(String(50), default="CC-BY-SA-4.0")
     content_markdown = Column(Text, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -69,6 +72,7 @@ class ForumThread(Base):
     __tablename__ = "forum_threads"
 
     id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(String(20), unique=True, index=True, default=lambda: gen_id("pos"))
     title = Column(String(255), nullable=False)
     slug = Column(String(255), unique=True, index=True, nullable=False)
     content = Column(Text, nullable=False)
@@ -89,6 +93,7 @@ class ForumReply(Base):
     __tablename__ = "forum_replies"
 
     id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(String(20), unique=True, index=True, default=lambda: gen_id("msg"))
     thread_id = Column(Integer, ForeignKey("forum_threads.id"))
     author_id = Column(Integer, ForeignKey("users.id"))
     content = Column(Text, nullable=False)
