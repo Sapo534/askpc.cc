@@ -9,6 +9,8 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - SECRET_KEY=${SECRET_KEY}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - DOMAIN=${DOMAIN}
     volumes:
       - ./app:/code/app
     depends_on:
@@ -23,12 +25,48 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Сохраняет данные БД на диске VPS
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 2s
       timeout: 5s
       retries: 5
 
+  # Rust-based Lightweight Matrix Server
+  conduit:
+    image: matrixconduit/matrix-conduit:latest
+    restart: always
+    environment:
+      CONDUIT_CONFIG: ""
+      CONDUIT_SERVER_NAME: "askpc.cc"
+      CONDUIT_DATABASE_PATH: "/var/lib/matrix-conduit"
+      CONDUIT_DATABASE_BACKEND: "rocksdb"
+      CONDUIT_ADDRESS: "0.0.0.0"
+      CONDUIT_PORT: 6167
+      CONDUIT_MAX_REQUEST_SIZE: 20000000 # 20MB file upload limit
+      CONDUIT_ALLOW_REGISTRATION: "true"
+      CONDUIT_TRUSTED_SERVERS: '["matrix.org"]'
+    volumes:
+      - conduit_data:/var/lib/matrix-conduit
+    depends_on:
+      - db
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - conduit
+
 volumes:
-  postgres_data: # Объявление persistent тома
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  conduit_data:

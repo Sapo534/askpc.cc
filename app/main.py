@@ -1,3 +1,6 @@
+import hmac
+import hashlib
+import frontmatter
 import markdown
 import nh3
 import os
@@ -5,12 +8,15 @@ import shutil
 import secrets
 import re
 import time
+from pathlib import Path
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from typing import Optional
 from PIL import Image
 import urllib.request
 import json
+import urllib.error
+import requests
 
 from fastapi import FastAPI, Request, Depends, Form, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -450,16 +456,6 @@ def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
     db.commit()
     return RedirectResponse(url="/settings?message=Email+verified+successfully!", status_code=status.HTTP_302_FOUND)
 
-@app.post("/settings/toggle-sponsor")
-def toggle_sponsor(request: Request, db: Session = Depends(get_db)):
-    current_user = get_current_user(request, db)
-    if current_user:
-        current_user.is_sponsor = not current_user.is_sponsor
-        if current_user.id == 1:
-            current_user.system_role = "founder"
-        db.commit()
-    return RedirectResponse(url="/settings", status_code=status.HTTP_302_FOUND)
-
 @app.get("/u/{username}")
 def public_profile(username: str, request: Request, db: Session = Depends(get_db)):
     current_user = get_current_user(request, db)
@@ -567,8 +563,11 @@ def login_page(request: Request):
 def register_page(request: Request):
     return templates.TemplateResponse(request=request, name="register.html", context={})
 
+# --- AUTH ROUTES WITH PERSISTENT 30-DAY COOKIES ---
+
+MAX_AGE_30_DAYS = 60 * 60 * 24 * 30
+
 @app.post("/auth/register")
-@limiter.limit("1/hour")
 def register_user(request: Request, username: str = Form(...), email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     existing_user = db.query(User).filter((User.email == email) | (User.username == username)).first()
     if existing_user:
@@ -579,11 +578,16 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
     
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     token = create_session_token(new_user.id)
-    response.set_cookie(key="session", value=token, httponly=True, samesite="lax")
+    response.set_cookie(
+        key="session", 
+        value=token, 
+        max_age=MAX_AGE_30_DAYS,  # Persistent 30 days
+        httponly=True, 
+        samesite="lax"
+    )
     return response
 
 @app.post("/auth/login")
-@limiter.limit("3/minute")
 def login_user(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == email).first()
     if not user or not user.hashed_password or not verify_password(password, user.hashed_password):
@@ -591,7 +595,13 @@ def login_user(request: Request, email: str = Form(...), password: str = Form(..
     
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     token = create_session_token(user.id)
-    response.set_cookie(key="session", value=token, httponly=True, samesite="lax")
+    response.set_cookie(
+        key="session", 
+        value=token, 
+        max_age=MAX_AGE_30_DAYS,  # Persistent 30 days
+        httponly=True, 
+        samesite="lax"
+    )
     return response
 
 @app.get("/auth/logout")
@@ -600,45 +610,127 @@ def logout_user():
     response.delete_cookie(key="session")
     return response
 
-# --- UNIVERSAL TRANSACTIONAL EMAIL SENDER ---
+# --- ROBUST EMAIL SENDERS VIA REQUESTS ---
 
 def send_verification_email(to_email: str, username: str, token: str):
     resend_api_key = os.getenv("RESEND_API_KEY")
-    domain = os.getenv("DOMAIN", "askpc.cc")
+    domain = os.getenv("DOMAIN", "askpc.cc").strip()
     verify_url = f"https://{domain}/verify-email?token={token}"
 
-    # Fallback for local dev if no API key is specified in .env
     if not resend_api_key:
         print(f"\n📧 [LOCAL DEV LOG] VERIFICATION LINK FOR @{username}: http://localhost:8000/verify-email?token={token}\n")
         return
 
-    # Send real email via Resend API (Free 300 emails/day)
     try:
-        payload = json.dumps({
-            "from": f"askpc.cc <noreply@{domain}>",
-            "to": [to_email],
-            "subject": "Verify your email address on askpc.cc",
-            "html": f"""
-                <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e5; border-radius: 4px;">
-                    <h2>Welcome to askpc.cc, @{username}!</h2>
-                    <p>Please confirm your email address by clicking the link below:</p>
-                    <p><a href="{verify_url}" style="display: inline-block; padding: 10px 20px; background: #111; color: #fff; text-decoration: none; border-radius: 4px;">Verify Email Address</a></p>
-                    <p style="font-size: 0.8rem; color: #666;">Or copy this link: {verify_url}</p>
-                </div>
-            """
-        }).encode('utf-8')
-
-        req = urllib.request.Request(
+        response = requests.post(
             "https://api.resend.com/emails",
-            data=payload,
             headers={
                 "Authorization": f"Bearer {resend_api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": "FastAPI-Mailer"
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             },
-            method="POST"
+            json={
+                "from": f"askpc.cc <noreply@{domain}>",
+                "to": [to_email],
+                "subject": "Verify your email address on askpc.cc",
+                "html": f"""
+                    <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e5; border-radius: 4px;">
+                        <h2>Welcome to askpc.cc, @{username}!</h2>
+                        <p>Please confirm your email address by clicking the link below:</p>
+                        <p><a href="{verify_url}" style="display: inline-block; padding: 10px 20px; background: #111; color: #fff; text-decoration: none; border-radius: 4px;">Verify Email Address</a></p>
+                    </div>
+                """
+            },
+            timeout=15
         )
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        if response.status_code in [200, 201]:
             print(f"✅ Real verification email sent to {to_email}")
+        else:
+            print(f"❌ Resend API Error {response.status_code}: {response.text}")
     except Exception as e:
         print(f"❌ Failed to send email via API: {e}")
+
+
+def send_reset_password_email(to_email: str, username: str, token: str):
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    domain = os.getenv("DOMAIN", "askpc.cc").strip()
+    reset_url = f"https://{domain}/reset-password?token={token}"
+
+    if not resend_api_key:
+        print(f"\n🔑 [LOCAL DEV LOG] RESET PASSWORD LINK FOR @{username}: http://localhost:8000/reset-password?token={token}\n")
+        return
+
+    try:
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {resend_api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            },
+            json={
+                "from": f"askpc.cc <noreply@{domain}>",
+                "to": [to_email],
+                "subject": "Password Reset Request for askpc.cc",
+                "html": f"""
+                    <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e5; border-radius: 4px;">
+                        <h2>Password Reset Request</h2>
+                        <p>Hi @{username}, click the link below to set a new password. Link is valid for 1 hour:</p>
+                        <p><a href="{reset_url}" style="display: inline-block; padding: 10px 20px; background: #111; color: #fff; text-decoration: none; border-radius: 4px;">Set New Password</a></p>
+                    </div>
+                """
+            },
+            timeout=15
+        )
+        if response.status_code in [200, 201]:
+            print(f"🔑 Password reset email sent to {to_email}")
+        else:
+            print(f"❌ Resend API Error {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"❌ Failed to send reset email: {e}")
+
+# --- PASSWORD RESET ROUTES ---
+
+@app.get("/forgot-password")
+def forgot_password_page(request: Request):
+    return templates.TemplateResponse(request=request, name="forgot_password.html", context={})
+
+@app.post("/forgot-password")
+@limiter.limit("3/hour")
+def process_forgot_password(request: Request, email: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email.strip()).first()
+    if user:
+        token = secrets.token_urlsafe(32)
+        user.reset_password_token = token
+        user.reset_password_expiry = datetime.utcnow() + timedelta(hours=1) # Valid for 1 hour
+        db.commit()
+        send_reset_password_email(user.email, user.username, token)
+
+    # Always show same message to prevent user email enumeration
+    return templates.TemplateResponse(
+        request=request, 
+        name="forgot_password.html", 
+        context={"message": "If an account with that email exists, a password reset link has been sent."}
+    )
+
+@app.get("/reset-password")
+def reset_password_page(token: str, request: Request, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_password_token == token).first()
+    if not user or not user.reset_password_expiry or user.reset_password_expiry < datetime.utcnow():
+        return templates.TemplateResponse(request=request, name="forgot_password.html", context={"error": "Invalid or expired password reset link."})
+
+    return templates.TemplateResponse(request=request, name="reset_password.html", context={"token": token})
+
+@app.post("/reset-password")
+def process_reset_password(request: Request, token: str = Form(...), new_password: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_password_token == token).first()
+    if not user or not user.reset_password_expiry or user.reset_password_expiry < datetime.utcnow():
+        return templates.TemplateResponse(request=request, name="forgot_password.html", context={"error": "Invalid or expired password reset link."})
+
+    user.hashed_password = hash_password(new_password)
+    user.reset_password_token = None
+    user.reset_password_expiry = None
+    user.last_password_change = datetime.utcnow()
+    db.commit()
+
+    return RedirectResponse(url="/login?message=Password+reset+successful!+Please+log+in.", status_code=status.HTTP_302_FOUND)

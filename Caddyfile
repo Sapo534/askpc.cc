@@ -1,3 +1,26 @@
-computer-help.site {
-    reverse_proxy web:8000
+# Matrix Homeserver Subdomain
+matrix.askpc.cc {
+    reverse_proxy conduit:6167
+}
+
+# Main Website + Matrix Delegation
+askpc.cc, www.askpc.cc {
+    # Matrix Client Discovery (.well-known)
+    handle /.well-known/matrix/client {
+        header Access-Control-Allow-Origin "*"
+        header Content-Type application/json
+        respond `{"m.homeserver":{"base_url":"https://matrix.askpc.cc"}}`
+    }
+
+    # Matrix Federation Server Discovery
+    handle /.well-known/matrix/server {
+        header Access-Control-Allow-Origin "*"
+        header Content-Type application/json
+        respond `{"m.server":"matrix.askpc.cc:443"}`
+    }
+
+    # Main FastAPI Web Application
+    handle {
+        reverse_proxy web:8000
+    }
 }

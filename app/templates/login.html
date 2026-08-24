@@ -40,6 +40,9 @@
 
             <form action="/auth/login" method="POST" style="display: flex; flex-direction: column; gap: 15px;">
                 <input type="email" name="email" placeholder="Email address" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
+		<div style="text-align: right; margin-top: 4px;">
+		    <a href="/forgot-password" style="font-size: 0.8rem; color: var(--text-secondary);">Forgot password?</a>
+		</div>
                 <input type="password" name="password" placeholder="Password" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
                 <button type="submit" class="btn" style="width: 100%;">Sign In</button>
             </form>

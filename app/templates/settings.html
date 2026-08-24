@@ -55,20 +55,31 @@
             <textarea name="bio" rows="3" maxlength="1000" placeholder="Arch Linux user, self-hosting enthusiast..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">{{ user.bio or '' }}</textarea>
         </div>
 
-        {% if user.is_sponsor or user.system_role in ['founder', 'co_founder', 'admin'] %}
+        <!-- Sponsor Color Picker -->
         <div>
-            <label style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 6px;">Sponsor Username Color</label>
+            <label style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 6px;">
+                Sponsor Username Color 
+                {% if user.is_sponsor or user.system_role in ['founder', 'co_founder', 'admin'] %}
+                    <span class="badge badge-solved" style="background:#00a855;">ACTIVE</span>
+                {% endif %}
+            </label>
+
+            {% if user.is_sponsor or user.system_role in ['founder', 'co_founder', 'admin'] %}
             <div style="display: flex; gap: 10px; align-items: center;">
                 <input type="color" name="custom_color" value="{{ user.custom_color or '#ff0055' }}" style="width: 50px; height: 38px; border: none; cursor: pointer;">
                 <span style="font-size: 0.85rem; color: var(--text-secondary);">Custom color accent active</span>
             </div>
+            {% else %}
+            <div class="notice-banner" style="margin-bottom: 0;">
+                Support askpc.cc for $2/mo to unlock custom username colors. <a href="/community" style="text-decoration: underline;">Become a Sponsor &rarr;</a>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
 
         <button type="submit" class="btn">Save Profile Settings</button>
     </form>
 
-    <!-- 2. Security: Username Change (Cooldown 14 Days) -->
+    <!-- 2. Security: Username Change -->
     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
         <h3>Change Username</h3>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Can be changed once every 14 days.</p>
@@ -78,7 +89,7 @@
         </form>
     </div>
 
-    <!-- 3. Security: Email Change & Verification -->
+    <!-- 3. Security: Email Change -->
     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <h3>Email Address</h3>
@@ -88,7 +99,7 @@
                 <span class="badge badge-open">UNVERIFIED</span>
             {% endif %}
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Can be changed once every 14 days. Verification link will be sent.</p>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Can be changed once every 14 days.</p>
         <form action="/settings/security/email" method="POST" style="display: flex; gap: 10px;">
             <input type="email" name="new_email" placeholder="New email address" value="{{ user.email }}" required style="flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
             <button type="submit" class="btn btn-outline">Update Email</button>
@@ -96,22 +107,13 @@
     </div>
 
     <!-- 4. Security: Password Change -->
-    <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
+    <div>
         <h3>Change Password</h3>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Can be changed once every 14 days.</p>
         <form action="/settings/security/password" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
             <input type="password" name="current_password" placeholder="Current password" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
             <input type="password" name="new_password" minlength="6" placeholder="New password (min 6 chars)" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
             <button type="submit" class="btn btn-outline">Update Password</button>
-        </form>
-    </div>
-
-    <!-- 5. Test Sponsor Toggle -->
-    <div>
-        <form action="/settings/toggle-sponsor" method="POST">
-            <button type="submit" class="btn btn-outline" style="width: 100%;">
-                ⚡ Toggle Test Sponsor Status (Current: {{ 'ACTIVE ($2/mo)' if user.is_sponsor else 'INACTIVE' }})
-            </button>
         </form>
     </div>
 

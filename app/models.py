@@ -46,6 +46,8 @@ class User(Base):
     last_password_change = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+    reset_password_token = Column(String(100), nullable=True)
+    reset_password_expiry = Column(DateTime, nullable=True)
 
 class Article(Base):
     __tablename__ = "articles"
