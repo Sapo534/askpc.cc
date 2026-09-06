@@ -5,8 +5,8 @@ from app.database import SessionLocal
 from app.models import User, ForumThread, ForumReply
 
 HOMESERVER = os.getenv("MATRIX_HOMESERVER", "https://matrix.askpc.cc")
-BOT_USER = os.getenv("MATRIX_BOT_USER", "@modbot:askpc.cc")
-BOT_PASS = os.getenv("MATRIX_BOT_PASSWORD", "bot_password_here")
+BOT_USER = os.getenv("MATRIX_BOT_USER", "")
+BOT_PASS = os.getenv("MATRIX_BOT_PASSWORD", "")
 
 async def message_callback(room: MatrixRoom, event: RoomMessageText) -> None:
     if event.sender == BOT_USER:
@@ -16,6 +16,7 @@ async def message_callback(room: MatrixRoom, event: RoomMessageText) -> None:
     db = SessionLocal()
 
     try:
+        # Search User ID
         if text.startswith("usr_"):
             user = db.query(User).filter(User.public_id == text).first()
             if not user:
@@ -32,6 +33,7 @@ async def message_callback(room: MatrixRoom, event: RoomMessageText) -> None:
             )
             await client.room_send(room.room_id, "m.room.message", {"msgtype": "m.text", "body": msg})
 
+        # Search Thread ID
         elif text.startswith("pos_"):
             thread = db.query(ForumThread).filter(ForumThread.public_id == text).first()
             if not thread:
@@ -48,6 +50,7 @@ async def message_callback(room: MatrixRoom, event: RoomMessageText) -> None:
             )
             await client.room_send(room.room_id, "m.room.message", {"msgtype": "m.text", "body": msg})
 
+        # Search Reply ID
         elif text.startswith("msg_"):
             reply = db.query(ForumReply).filter(ForumReply.public_id == text).first()
             if not reply:
@@ -71,12 +74,12 @@ async def main():
     client = AsyncClient(HOMESERVER, BOT_USER)
     client.add_event_callback(message_callback, RoomMessageText)
 
-    if BOT_USER != "@modbot:askpc.cc":
+    if BOT_USER and BOT_PASS:
         await client.login(BOT_PASS)
         print(f"🤖 Matrix Moderation Bot connected as {BOT_USER}!")
         await client.sync_forever(timeout=30000)
     else:
-        print("⚠️ MATRIX_BOT_USER not set. Bot disabled.")
+        print("⚠️ MATRIX_BOT_USER or MATRIX_BOT_PASSWORD not set. Bot in standby mode.")
 
 if __name__ == "__main__":
     asyncio.run(main())

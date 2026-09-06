@@ -1,12 +1,82 @@
 {% extends "base.html" %}
 
-{% block title %}Community — askpc.cc{% endblock %}
+{% block title %}Community & Sponsorship — askpc.cc{% endblock %}
 
 {% block content %}
 <div class="content-grid">
     <div class="primary-content">
         <h1>Community Hub</h1>
-        <p style="color: var(--text-secondary); margin-bottom: 30px;">Help us build an ad-free, open tech community.</p>
+        <p style="color: var(--text-secondary); margin-bottom: 25px;">Support askpc.cc to keep the platform ad-free, open-source, and fast.</p>
+
+        {% if message %}
+        <div class="notice-banner" style="border-left-color: #008800; color: #008800; margin-bottom: 20px;">
+            {{ message }}
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="notice-banner" style="border-left-color: #ff0000; color: #ff0000; margin-bottom: 20px;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- Subscription Goal Progress Bar (10 Active Sponsors Goal) -->
+        <section class="section" style="background: var(--bg-secondary); padding: 25px; border-radius: 4px; border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
+                <h2 style="font-size: 1.2rem;">Monthly VPS Funding Goal</h2>
+                <strong style="font-family: var(--font-mono);">{{ active_sponsors_count }} / 10 Sponsors</strong>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar" style="height: 12px; background: var(--border-color); border-radius: 6px; overflow: hidden; margin-bottom: 10px;">
+                <div class="progress-fill" style="width: {{ progress_percent }}%; height: 100%; background: #000000;"></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary);">
+                <span>Raised: <strong>${{ active_sponsors_count * 2 }}.00 / mo</strong></span>
+                <span>Goal: <strong>$20.00 / mo (100% VPS Coverage)</strong></span>
+            </div>
+        </section>
+
+        <!-- Become a Sponsor Card (Solana USDT) -->
+        <section class="section" style="margin-top: 30px;">
+            <h2>Become a Sponsor ($2.00 / mo)</h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">
+                Sponsors unlock custom username accent colors and support open tech documentation.
+            </p>
+
+            {% if user %}
+            <div class="card" style="padding: 25px; border: 1px solid var(--border-dark);">
+                <h3 style="margin-bottom: 10px;">Pay with Solana USDT (SPL Token)</h3>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">
+                    Send exactly <strong>2.00 USDT (Solana Network)</strong> to the wallet address below with your Account Memo:
+                </p>
+
+                <!-- Deposit Address & Memo Details -->
+                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 4px; border: 1px solid var(--border-color); font-family: var(--font-mono); font-size: 0.85rem; margin-bottom: 20px; word-break: break-all;">
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: var(--text-secondary);">Solana Deposit Address:</span><br>
+                        <strong style="color: var(--text-primary);">{{ solana_wallet }}</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-secondary);">Required Transfer Memo / Note:</span><br>
+                        <strong style="color: #000000; font-size: 1rem;">{{ user.public_id }}</strong>
+                    </div>
+                </div>
+
+                <!-- Verification Form -->
+                <form action="/community/sponsor/verify" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Transaction Signature / Hash (TxHash)</label>
+                    <input type="text" name="tx_hash" placeholder="Paste Solana Transaction Signature here..." required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; font-family: var(--font-mono);">
+                    <button type="submit" class="btn" style="background: #000000;">Verify Solana USDT Transfer & Activate ($2/mo)</button>
+                </form>
+            </div>
+            {% else %}
+            <div class="notice-banner">
+                Please <a href="/login" style="text-decoration: underline;">log in</a> to activate a Sponsor subscription.
+            </div>
+            {% endif %}
+        </section>
 
         <section class="section">
             <h2>How to Contribute</h2>
@@ -16,13 +86,9 @@
                     <p class="card-desc">All KB articles are open-source Markdown files. Submit a pull request on GitHub to fix errors or add new articles.</p>
                     <a href="https://github.com/Sapo534/askpc-kb" target="_blank" rel="noopener" class="btn btn-outline">GitHub Repository &rarr;</a>
                 </div>
-                <div class="card">
-                    <h3>Open Issues & Bug Reports</h3>
-                    <p class="card-desc">Help us build missing features or report bugs directly on our issue tracker.</p>
-                    <a href="https://github.com/Sapo534/askpc-kb/issues" target="_blank" rel="noopener" class="btn btn-outline">View GitHub Issues &rarr;</a>
-                </div>
             </div>
         </section>
+
     </div>
 
     <aside class="sidebar">

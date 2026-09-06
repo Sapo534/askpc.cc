@@ -7,18 +7,19 @@
     <h1>Account Settings</h1>
     <p style="color: var(--text-secondary); margin-bottom: 25px;">Manage your profile, security, and credentials.</p>
 
-    {% if message %}
+    {% if message or request.query_params.get("message") %}
     <div class="notice-banner" style="border-left-color: #008800; color: #008800; margin-bottom: 20px;">
-        {{ message }}
+        {{ message or request.query_params.get("message") }}
     </div>
     {% endif %}
 
-    {% if error %}
+    {% if error or request.query_params.get("error") %}
     <div class="notice-banner" style="border-left-color: #ff0000; color: #ff0000; margin-bottom: 20px;">
-        {{ error }}
+        {{ error or request.query_params.get("error") }}
     </div>
     {% endif %}
 
+    <!-- 1. General Profile Form -->
     <form action="/settings" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
         <div>
             <label style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 8px;">Profile Avatar</label>
@@ -33,15 +34,15 @@
             <div style="display: flex; gap: 10px;">
                 <label style="flex: 1; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; cursor: pointer; text-align: center;">
                     <input type="radio" name="experience_badge" value="Teapot" {% if user.experience_badge == 'Teapot' %}checked{% endif %}>
-                    <strong>🫖 Teapot</strong>
+                    <strong>Teapot</strong>
                 </label>
                 <label style="flex: 1; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; cursor: pointer; text-align: center;">
                     <input type="radio" name="experience_badge" value="User" {% if user.experience_badge == 'User' %}checked{% endif %}>
-                    <strong>💻 User</strong>
+                    <strong>User</strong>
                 </label>
                 <label style="flex: 1; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; cursor: pointer; text-align: center;">
                     <input type="radio" name="experience_badge" value="Pro" {% if user.experience_badge == 'Pro' %}checked{% endif %}>
-                    <strong>⚡ Pro</strong>
+                    <strong>Pro</strong>
                 </label>
             </div>
         </div>
@@ -54,6 +55,7 @@
             <textarea name="bio" rows="3" maxlength="1000" placeholder="Arch Linux user, self-hosting enthusiast..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">{{ user.bio or '' }}</textarea>
         </div>
 
+        <!-- Sponsor Color Picker -->
         <div>
             <label style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 6px;">
                 Sponsor Username Color 
@@ -77,6 +79,33 @@
         <button type="submit" class="btn">Save Profile Settings</button>
     </form>
 
+    <!-- 2. GitHub Account Integration -->
+    <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h3>GitHub Account Integration</h3>
+            {% if user.github_username %}
+                <span class="badge badge-solved" style="background:#00a855;">LINKED</span>
+            {% else %}
+                <span class="badge badge-open">NOT LINKED</span>
+            {% endif %}
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">
+            Link your GitHub account to automatically verify your email and enable 1-click login.
+        </p>
+
+        {% if user.github_username %}
+            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); padding: 12px 16px; border-radius: 4px; border: 1px solid var(--border-color);">
+                <span style="font-weight: 600; font-size: 0.9rem;">Connected: @{{ user.github_username }}</span>
+                <form action="/settings/github/unlink" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem; color: #ff0000; border-color: #ff0000;">Unlink</button>
+                </form>
+            </div>
+        {% else %}
+            <a href="/settings/github/link" class="btn btn-outline" style="display: inline-block;">Link GitHub Account &rarr;</a>
+        {% endif %}
+    </div>
+
+    <!-- 3. Security: Username Change -->
     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
         <h3>Change Username</h3>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Can be changed once every 14 days.</p>
@@ -86,6 +115,7 @@
         </form>
     </div>
 
+    <!-- 4. Security: Email Change -->
     <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 25px; margin-bottom: 25px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <h3>Email Address</h3>
@@ -102,6 +132,7 @@
         </form>
     </div>
 
+    <!-- 5. Security: Password Change -->
     <div>
         <h3>Change Password</h3>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Can be changed once every 14 days.</p>

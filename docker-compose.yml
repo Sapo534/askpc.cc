@@ -11,6 +11,9 @@ services:
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
       - RESEND_API_KEY=${RESEND_API_KEY}
       - DOMAIN=${DOMAIN}
+      - SOLANA_WALLET_ADDRESS=${SOLANA_WALLET_ADDRESS}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
     volumes:
       - ./app:/code/app
     depends_on:
@@ -51,17 +54,20 @@ services:
       - db
 
   bot:
-    build: .
-    command: python matrix_bot.py
-    restart: always
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - MATRIX_HOMESERVER=https://matrix.askpc.cc
-      - MATRIX_BOT_USER=${MATRIX_BOT_USER}
-      - MATRIX_BOT_PASSWORD=${MATRIX_BOT_PASSWORD}
-    depends_on:
-      - conduit
-      - db
+      build: .
+      command: python matrix_bot.py
+      restart: always
+      environment:
+        - DATABASE_URL=${DATABASE_URL}
+        - MATRIX_HOMESERVER=https://matrix.askpc.cc
+        - MATRIX_BOT_USER=${MATRIX_BOT_USER}
+        - MATRIX_BOT_PASSWORD=${MATRIX_BOT_PASSWORD}
+      volumes:
+        - ./matrix_bot.py:/code/matrix_bot.py  # Проброс файла бота
+        - ./app:/code/app
+      depends_on:
+        - conduit
+        - db
 
   caddy:
     image: caddy:2-alpine

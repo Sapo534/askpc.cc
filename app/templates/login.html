@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Log In — computer.help</title>
+    <title>Log In — askpc.cc</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <header class="site-header">
         <div class="container header-container">
-            <a href="/" class="logo">computer.help</a>
+            <a href="/" class="logo">askpc.cc</a>
         </div>
     </header>
 
@@ -32,18 +32,15 @@
             <!-- OAuth Buttons -->
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
                 <a href="/auth/github" class="btn btn-outline" style="text-align: center;">Continue with GitHub</a>
-                <a href="/auth/google" class="btn btn-outline" style="text-align: center;">Continue with Google</a>
-                <a href="/auth/vk" class="btn btn-outline" style="text-align: center;">Continue with VK</a>
             </div>
 
             <div style="text-align: center; color: var(--text-secondary); margin-bottom: 20px;">or with password</div>
 
             <form action="/auth/login" method="POST" style="display: flex; flex-direction: column; gap: 15px;">
                 <input type="email" name="email" placeholder="Email address" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
-		<div style="text-align: right; margin-top: 4px;">
-		    <a href="/forgot-password" style="font-size: 0.8rem; color: var(--text-secondary);">Forgot password?</a>
-		</div>
-                <input type="password" name="password" placeholder="Password" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
+		
+                <input type="password" name="password" placeholder="Very cool password" required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;">
+		<a href="/forgot-password" style="font-size: 0.8rem; color: var(--text-secondary);">Forgot password?</a>
                 <button type="submit" class="btn" style="width: 100%;">Sign In</button>
             </form>
 

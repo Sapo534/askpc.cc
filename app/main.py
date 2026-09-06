@@ -23,25 +23,38 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from .database import get_db, engine
-from .models import Base, Article, ForumThread, ForumReply, User, ThreadVote, ReplyVote, Tag, ArticleTag, ThreadTag
-from .auth import hash_password, verify_password, create_session_token, verify_session_token
+from starlette.middleware.sessions import SessionMiddleware
+from authlib.integrations.starlette_client import OAuth
 
+from .database import get_db, engine
+from .models import Base, Article, ForumThread, ForumReply, User, ThreadVote, ReplyVote, Tag, ArticleTag, ThreadTag, Payment
+from .auth import hash_password, verify_password, create_session_token, verify_session_token, SECRET_KEY
+
+# Ensure tables & folders exist
 Base.metadata.create_all(bind=engine)
 os.makedirs("app/static/avatars", exist_ok=True)
 os.makedirs("app/static/uploads", exist_ok=True)
 
-# FastAPI Init
+# Application Constants
+MAX_AGE_30_DAYS = 60 * 60 * 24 * 30 # 30 Days in seconds
+SOLANA_WALLET = os.getenv("SOLANA_WALLET_ADDRESS", "9xQeWvG816bUx9EPjHmaT23yvVM2VYdeHzM2a6C3Vfc")
+ALLOWED_HOSTS = {"askpc.cc", "www.askpc.cc", "localhost:8000", "127.0.0.1:8000"}
+
+# FastAPI App Init
 app = FastAPI(title="askpc.cc", docs_url=None, redoc_url=None, openapi_url=None)
 
 # Rate Limiter
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Session Middleware for OAuth State Management
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 # CORS Middleware
 app.add_middleware(
@@ -55,9 +68,19 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# CSRF & Security Headers Middleware
-ALLOWED_HOSTS = {"askpc.cc", "www.askpc.cc", "localhost:8000", "127.0.0.1:8000"}
+# Authlib OAuth Setup
+oauth = OAuth()
+oauth.register(
+    name='github',
+    client_id=os.getenv("GITHUB_CLIENT_ID"),
+    client_secret=os.getenv("GITHUB_CLIENT_SECRET"),
+    access_token_url='https://github.com/login/oauth/access_token',
+    authorize_url='https://github.com/login/oauth/authorize',
+    api_base_url='https://api.github.com/',
+    client_kwargs={'scope': 'user:email'},
+)
 
+# CSRF & Security Headers Middleware
 @app.middleware("http")
 async def add_security_headers_and_csrf(request: Request, call_next):
     if request.method in ("POST", "PUT", "DELETE") and request.url.path != "/webhooks/github":
@@ -76,7 +99,7 @@ async def add_security_headers_and_csrf(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
-# File Saver with Magic Bytes & Pillow Verification
+# Secure File Saver (5MB Limit + Magic Bytes + Pillow Verification)
 ALLOWED_ATTACHMENTS = {
     ".png", ".jpg", ".jpeg", ".webp", ".gif",
     ".pdf", ".md", ".txt", ".log",
@@ -131,15 +154,16 @@ def render_markdown(text: str) -> str:
 
 templates.env.filters["markdown"] = render_markdown
 
+# Secure User Session Helper (auth_session)
 def get_current_user(request: Request, db: Session) -> Optional[User]:
-    token = request.cookies.get("session")
+    token = request.cookies.get("auth_session")
     if not token: return None
     user_id = verify_session_token(token)
     if user_id:
         return db.query(User).filter(User.id == user_id).first()
     return None
 
-# Email Senders
+# Email Senders via requests API
 def send_verification_email(to_email: str, username: str, token: str):
     resend_api_key = os.getenv("RESEND_API_KEY")
     domain = os.getenv("DOMAIN", "askpc.cc").strip()
@@ -152,12 +176,28 @@ def send_verification_email(to_email: str, username: str, token: str):
     try:
         response = requests.post(
             "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {resend_api_key}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
-            json={"from": f"askpc.cc <noreply@{domain}>", "to": [to_email], "subject": "Verify your email address on askpc.cc", "html": f"<h2>Welcome @{username}!</h2><p><a href='{verify_url}'>Verify Email Address</a></p>"},
+            headers={
+                "Authorization": f"Bearer {resend_api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+            },
+            json={
+                "from": f"askpc.cc <noreply@{domain}>",
+                "to": [to_email],
+                "subject": "Verify your email address on askpc.cc",
+                "html": f"""
+                    <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e5; border-radius: 4px;">
+                        <h2>Welcome to askpc.cc, @{username}!</h2>
+                        <p>Please confirm your email address by clicking the link below:</p>
+                        <p><a href="{verify_url}" style="display: inline-block; padding: 10px 20px; background: #111; color: #fff; text-decoration: none; border-radius: 4px;">Verify Email Address</a></p>
+                    </div>
+                """
+            },
             timeout=15
         )
-        if response.status_code in [200, 201]: print(f"✅ Email sent to {to_email}")
-    except Exception as e: print(f"❌ Email error: {e}")
+        if response.status_code in [200, 201]: print(f"✅ Real verification email sent to {to_email}")
+        else: print(f"❌ Resend API Error {response.status_code}: {response.text}")
+    except Exception as e: print(f"❌ Failed to send email via API: {e}")
 
 def send_reset_password_email(to_email: str, username: str, token: str):
     resend_api_key = os.getenv("RESEND_API_KEY")
@@ -165,18 +205,34 @@ def send_reset_password_email(to_email: str, username: str, token: str):
     reset_url = f"https://{domain}/reset-password?token={token}"
 
     if not resend_api_key:
-        print(f"\n🔑 [LOCAL DEV LOG] RESET LINK FOR @{username}: http://localhost:8000/reset-password?token={token}\n")
+        print(f"\n🔑 [LOCAL DEV LOG] RESET PASSWORD LINK FOR @{username}: http://localhost:8000/reset-password?token={token}\n")
         return
 
     try:
         response = requests.post(
             "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {resend_api_key}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
-            json={"from": f"askpc.cc <noreply@{domain}>", "to": [to_email], "subject": "Password Reset Request for askpc.cc", "html": f"<h2>Password Reset Request</h2><p><a href='{reset_url}'>Set New Password</a></p>"},
+            headers={
+                "Authorization": f"Bearer {resend_api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+            },
+            json={
+                "from": f"askpc.cc <noreply@{domain}>",
+                "to": [to_email],
+                "subject": "Password Reset Request for askpc.cc",
+                "html": f"""
+                    <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e5; border-radius: 4px;">
+                        <h2>Password Reset Request</h2>
+                        <p>Hi @{username}, click the link below to set a new password. Link is valid for 1 hour:</p>
+                        <p><a href="{reset_url}" style="display: inline-block; padding: 10px 20px; background: #111; color: #fff; text-decoration: none; border-radius: 4px;">Set New Password</a></p>
+                    </div>
+                """
+            },
             timeout=15
         )
-        if response.status_code in [200, 201]: print(f"🔑 Reset email sent to {to_email}")
-    except Exception as e: print(f"❌ Reset email error: {e}")
+        if response.status_code in [200, 201]: print(f"🔑 Password reset email sent to {to_email}")
+        else: print(f"❌ Resend API Error {response.status_code}: {response.text}")
+    except Exception as e: print(f"❌ Failed to send reset email: {e}")
 
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon():
@@ -238,7 +294,35 @@ def tag_detail_page(tag_name: str, request: Request, db: Session = Depends(get_d
 @app.get("/community.html")
 def community_page(request: Request, db: Session = Depends(get_db)):
     current_user = get_current_user(request, db)
-    return templates.TemplateResponse(request=request, name="community.html", context={"user": current_user})
+    active_sponsors_count = db.query(User).filter(User.is_sponsor == True).count()
+    progress_percent = min(100, int((active_sponsors_count / 10) * 100))
+    return templates.TemplateResponse(
+        request=request, name="community.html", 
+        context={
+            "user": current_user, 
+            "active_sponsors_count": active_sponsors_count,
+            "progress_percent": progress_percent,
+            "solana_wallet": SOLANA_WALLET
+        }
+    )
+
+@app.post("/community/sponsor/verify")
+def verify_solana_payment(request: Request, tx_hash: str = Form(...), db: Session = Depends(get_db)):
+    current_user = get_current_user(request, db)
+    if not current_user: return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    tx_clean = tx_hash.strip()
+    
+    existing_pay = db.query(Payment).filter(Payment.tx_hash == tx_clean).first()
+    if existing_pay:
+        return templates.TemplateResponse(request=request, name="community.html", context={"user": current_user, "error": "This transaction signature has already been claimed.", "solana_wallet": SOLANA_WALLET, "active_sponsors_count": db.query(User).filter(User.is_sponsor == True).count(), "progress_percent": 10})
+
+    new_pay = Payment(user_id=current_user.id, tx_hash=tx_clean, amount_usdt=2.0)
+    db.add(new_pay)
+    current_user.is_sponsor = True
+    current_user.sponsor_until = datetime.utcnow() + timedelta(days=30)
+    db.commit()
+
+    return templates.TemplateResponse(request=request, name="community.html", context={"user": current_user, "message": "🎉 Payment recorded! Sponsor status active for 30 days.", "solana_wallet": SOLANA_WALLET, "active_sponsors_count": db.query(User).filter(User.is_sponsor == True).count(), "progress_percent": min(100, int((db.query(User).filter(User.is_sponsor == True).count() / 10) * 100))})
 
 @app.get("/rules")
 @app.get("/rules.html")
@@ -265,15 +349,11 @@ def new_thread_page(request: Request, db: Session = Depends(get_db)):
 def create_thread(request: Request, title: str = Form(...), tags: str = Form(...), content: str = Form(...), attachment: Optional[UploadFile] = File(None), db: Session = Depends(get_db)):
     current_user = get_current_user(request, db)
     if not current_user: return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    
-    # Mandatory Email Verification Check
     if not current_user.is_email_verified:
         return templates.TemplateResponse(request=request, name="create_thread.html", context={"user": current_user, "error": "Email verification required before posting. Please check your inbox or settings."})
 
-    try:
-        attach_url, attach_name = save_secure_file(attachment, "uploads")
-    except ValueError as err:
-        return templates.TemplateResponse(request=request, name="create_thread.html", context={"user": current_user, "error": str(err)})
+    try: attach_url, attach_name = save_secure_file(attachment, "uploads")
+    except ValueError as err: return templates.TemplateResponse(request=request, name="create_thread.html", context={"user": current_user, "error": str(err)})
 
     slug = f"{re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')}-{int(time.time())}"
     new_thread = ForumThread(title=title, slug=slug, content=content, attachment_url=attach_url, attachment_name=attach_name, author_id=current_user.id)
@@ -306,8 +386,6 @@ def thread_detail(slug: str, request: Request, db: Session = Depends(get_db)):
 def add_reply(slug: str, request: Request, content: str = Form(...), attachment: Optional[UploadFile] = File(None), db: Session = Depends(get_db)):
     current_user = get_current_user(request, db)
     if not current_user: return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    
-    # Mandatory Email Verification Check
     if not current_user.is_email_verified:
         thread = db.query(ForumThread).filter(ForumThread.slug == slug).first()
         replies = db.query(ForumReply).filter(ForumReply.thread_id == thread.id).all() if thread else []
@@ -315,8 +393,7 @@ def add_reply(slug: str, request: Request, content: str = Form(...), attachment:
 
     thread = db.query(ForumThread).filter(ForumThread.slug == slug).first()
     if thread:
-        try:
-            attach_url, attach_name = save_secure_file(attachment, "uploads")
+        try: attach_url, attach_name = save_secure_file(attachment, "uploads")
         except ValueError as err:
             replies = db.query(ForumReply).filter(ForumReply.thread_id == thread.id).order_by(ForumReply.created_at.asc()).all()
             return templates.TemplateResponse(request=request, name="thread_detail.html", context={"user": current_user, "thread": thread, "replies": replies, "error": str(err)})
@@ -520,6 +597,80 @@ def public_profile(username: str, request: Request, db: Session = Depends(get_db
     threads = db.query(ForumThread).filter(ForumThread.author_id == profile_user.id).all()
     return templates.TemplateResponse(request=request, name="profile.html", context={"user": current_user, "profile_user": profile_user, "threads": threads})
 
+# --- UNIFIED GITHUB OAUTH ROUTES ---
+
+@app.get("/auth/github")
+@app.get("/settings/github/link")
+async def github_login(request: Request):
+    redirect_uri = f"https://{os.getenv('DOMAIN', 'askpc.cc')}/auth/github/callback"
+    return await oauth.github.authorize_redirect(request, redirect_uri)
+
+@app.get("/auth/github/callback")
+async def github_callback(request: Request, db: Session = Depends(get_db)):
+    try:
+        token = await oauth.github.authorize_access_token(request)
+        resp = await oauth.github.get('user', token=token)
+        profile = resp.json()
+
+        gh_username = profile.get('login')
+        avatar = profile.get('avatar_url')
+
+        email = profile.get('email')
+        if not email:
+            emails_resp = await oauth.github.get('user/emails', token=token)
+            emails = emails_resp.json()
+            primary_email = next((e['email'] for e in emails if e.get('primary')), None)
+            email = primary_email or f"{gh_username}@github.oauth"
+
+        current_user = get_current_user(request, db)
+
+        if current_user:
+            existing = db.query(User).filter(User.github_username == gh_username, User.id != current_user.id).first()
+            if existing:
+                return RedirectResponse(url=f"/settings?error=GitHub+account+@{gh_username}+is+already+linked+to+another+user", status_code=status.HTTP_302_FOUND)
+
+            current_user.github_username = gh_username
+            current_user.is_email_verified = True
+            if current_user.avatar_url == "/static/default-avatar.png" and avatar:
+                current_user.avatar_url = avatar
+
+            db.commit()
+            return RedirectResponse(url=f"/settings?message=GitHub+account+@{gh_username}+linked+successfully!", status_code=status.HTTP_302_FOUND)
+
+        user = db.query(User).filter((User.email == email) | (User.github_username == gh_username) | (User.username == gh_username)).first()
+        if not user:
+            user = User(
+                username=gh_username,
+                github_username=gh_username,
+                email=email,
+                avatar_url=avatar,
+                is_email_verified=True
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            if not user.github_username:
+                user.github_username = gh_username
+                db.commit()
+
+        response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+        session_token = create_session_token(user.id)
+        response.set_cookie(key="auth_session", value=session_token, max_age=MAX_AGE_30_DAYS, httponly=True, samesite="lax", secure=True)
+        return response
+
+    except Exception as e:
+        print(f"❌ GitHub OAuth Callback Error: {e}")
+        return RedirectResponse(url="/login?error=OAuth+failed", status_code=status.HTTP_302_FOUND)
+
+@app.post("/settings/github/unlink")
+def unlink_github(request: Request, db: Session = Depends(get_db)):
+    current_user = get_current_user(request, db)
+    if current_user:
+        current_user.github_username = None
+        db.commit()
+    return RedirectResponse(url="/settings?message=GitHub+account+unlinked", status_code=status.HTTP_302_FOUND)
+
 # --- GITHUB WEBHOOK FOR AUTOMATIC DOCS SYNC ---
 
 def verify_github_signature(raw_body: bytes, signature_header: str, secret: str) -> bool:
@@ -643,7 +794,6 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
     db.add(new_user)
     db.commit()
 
-    # Automatically send email verification link on signup
     token = secrets.token_urlsafe(32)
     new_user.email_verification_token = token
     db.commit()
@@ -651,7 +801,7 @@ def register_user(request: Request, username: str = Form(...), email: str = Form
     
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     session_token = create_session_token(new_user.id)
-    response.set_cookie(key="session", value=session_token, max_age=MAX_AGE_30_DAYS, httponly=True, samesite="lax")
+    response.set_cookie(key="auth_session", value=session_token, max_age=MAX_AGE_30_DAYS, httponly=True, samesite="lax", secure=True)
     return response
 
 @app.post("/auth/login")
@@ -663,11 +813,11 @@ def login_user(request: Request, email: str = Form(...), password: str = Form(..
     
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     token = create_session_token(user.id)
-    response.set_cookie(key="session", value=token, max_age=MAX_AGE_30_DAYS, httponly=True, samesite="lax")
+    response.set_cookie(key="auth_session", value=token, max_age=MAX_AGE_30_DAYS, httponly=True, samesite="lax", secure=True)
     return response
 
 @app.get("/auth/logout")
 def logout_user():
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    response.delete_cookie(key="session")
+    response.delete_cookie(key="auth_session")
     return response

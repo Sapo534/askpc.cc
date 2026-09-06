@@ -1,6 +1,6 @@
 import secrets
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, UniqueConstraint, Float
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -36,6 +36,7 @@ class User(Base):
     experience_badge = Column(String(20), default="Teapot")
     system_role = Column(String(20), default="user")
     is_sponsor = Column(Boolean, default=False)
+    sponsor_until = Column(DateTime, nullable=True)
     custom_color = Column(String(10), nullable=True)
     karma = Column(Integer, default=0)
     bio = Column(Text, nullable=True)
@@ -47,6 +48,7 @@ class User(Base):
     last_username_change = Column(DateTime, nullable=True)
     last_email_change = Column(DateTime, nullable=True)
     last_password_change = Column(DateTime, nullable=True)
+    github_username = Column(String(50), unique=True, index=True, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -122,3 +124,11 @@ class ReplyVote(Base):
     reply_id = Column(Integer, ForeignKey("forum_replies.id"), nullable=False)
     value = Column(Integer, nullable=False)
     __table_args__ = (UniqueConstraint('user_id', 'reply_id', name='unique_user_reply_vote'),)
+
+class Payment(Base):
+    __tablename__ = "payments"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    tx_hash = Column(String(100), unique=True, index=True, nullable=False)
+    amount_usdt = Column(Float, default=2.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
