@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Wiki & Glossary — askpc.cc{% endblock %}
+
+{% block content %}
+<div style="max-width: 850px; margin: 0 auto;">
+  <h1>Technical Glossary & Wiki</h1>
+  <p style="color: var(--text-secondary); margin-bottom: 20px;">
+    Concise explanations of computer terms, protocols, and concepts. Hover over any wiki link to preview its definition.
+  </p>
+
+  <!-- Search Box -->
+  <form action="/wiki" method="GET" class="search-box" style="max-width: 100%; margin-bottom: 25px;">
+    <input type="text" name="q" value="{{ q or '' }}" placeholder="Search terms (e.g. Wayland, Kernel, Swap, UFW)..."
+      aria-label="Search Wiki">
+    <button type="submit">Search</button>
+  </form>
+
+  <!-- A-Z Jump Links -->
+  {% if not q and terms_by_letter %}
+  <nav class="wiki-az-bar">
+    {% for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" %}
+    {% if letter in terms_by_letter %}
+    <a href="#letter-{{ letter }}"><strong>{{ letter }}</strong></a>
+    {% else %}
+    <span style="color: #ccc; padding: 2px 6px;">{{ letter }}</span>
+    {% endif %}
+    {% endfor %}
+  </nav>
+  {% endif %}
+
+  <!-- Terms Listing -->
+  {% if terms_by_letter %}
+  {% for letter, terms in terms_by_letter.items() %}
+  <div class="wiki-letter-group" id="letter-{{ letter }}">
+    <h2 class="wiki-letter-title">{{ letter }}</h2>
+    <div class="card-list">
+      {% for item in terms %}
+      <div class="card" style="padding: 16px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+          <h3 style="font-size: 1.15rem; margin: 0;">
+            <a href="/wiki/{{ item.slug }}">{{ item.term }}</a>
+          </h3>
+          <span class="badge badge-open" style="font-size: 0.65rem;">{{ item.category }}</span>
+        </div>
+        <p class="card-desc" style="margin-bottom: 0; font-size: 0.9rem;">{{ item.summary }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="notice-banner">
+    No wiki terms found. {% if q %}<a href="/wiki" style="text-decoration: underline;">Clear search filter &rarr;</a>{%
+    endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

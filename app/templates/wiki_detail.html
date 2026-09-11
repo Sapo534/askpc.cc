@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{{ term.term }} (Wiki) — askpc.cc{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+  <div style="margin-bottom: 20px;">
+    <a href="/wiki" style="font-size: 0.85rem; color: var(--text-secondary);">&larr; Back to Wiki Glossary</a>
+  </div>
+
+  <article style="border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px;">
+    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+      <span class="card-category">WIKI ENTRY</span>
+      <span class="badge badge-open">{{ term.category }}</span>
+    </div>
+
+    <h1 style="font-size: 2.2rem; margin-bottom: 12px;">{{ term.term }}</h1>
+
+    <!-- Quick Summary Box -->
+    <div
+      style="background: var(--bg-secondary); border-left: 3px solid var(--border-dark); padding: 14px 18px; border-radius: 0 4px 4px 0; margin-bottom: 25px; font-size: 1rem; line-height: 1.5;">
+      <strong>Quick Definition:</strong> {{ term.summary }}
+    </div>
+
+    <!-- Full Markdown Article (if available) -->
+    {% if term.content_markdown %}
+    <div class="article-content">
+      {{ term.content_markdown | markdown | safe }}
+    </div>
+    {% endif %}
+
+    <div
+      style="margin-top: 30px; font-size: 0.8rem; color: var(--text-secondary); border-top: 1px solid var(--border-color); padding-top: 15px;">
+      Last updated: {{ term.updated_at.strftime('%Y-%m-%d') }} •
+      <a href="/kb?q={{ term.term }}" style="text-decoration: underline;">Search Knowledge Base for {{ term.term }}
+        &rarr;</a>
+    </div>
+  </article>
+</div>
+{% endblock %}
