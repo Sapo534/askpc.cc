@@ -44,6 +44,7 @@ from .models import (
     ArticleTag,
     ThreadTag,
     Payment,
+    WikiTerm,
 )
 from .auth import (
     hash_password,
@@ -1395,6 +1396,53 @@ def sync_github_md_file(md_content: str, file_path: str, db: Session):
     db.commit()
 
 
+# --- WIKI SYNC VIA GITHUB WEBHOOK ---
+
+
+def delete_github_wiki_file(file_path: str, db: Session):
+    slug = re.sub(r"[^a-z0-9]+", "-", Path(file_path).stem.lower()).strip("-")
+    term = db.query(WikiTerm).filter(WikiTerm.slug == slug).first()
+    if term:
+        db.delete(term)
+        db.commit()
+        print(f"🗑️ Cleaned up deleted wiki term: {slug}")
+
+
+def sync_github_wiki_file(md_content: str, file_path: str, db: Session):
+    post = frontmatter.loads(md_content)
+    stem = Path(file_path).stem
+    term_title = post.get("term") or post.get("title") or stem.replace("-", " ").title()
+    slug = re.sub(r"[^a-z0-9]+", "-", stem.lower()).strip("-")
+
+    # Extract summary for tooltip
+    summary = post.get("summary")
+    if not summary:
+        # Fallback: take the first non-header line as summary
+        lines = [
+            l.strip()
+            for l in post.content.split("\n")
+            if l.strip() and not l.startswith("#")
+        ]
+        summary = lines[0][:300] if lines else f"Technical definition for {term_title}"
+
+    cleaned_content = convert_obsidian_wikilinks(post.content)
+
+    term_obj = db.query(WikiTerm).filter(WikiTerm.slug == slug).first()
+    if not term_obj:
+        term_obj = WikiTerm(term=term_title, slug=slug, summary=summary)
+        db.add(term_obj)
+
+    term_obj.term = term_title
+    term_obj.slug = slug
+    term_obj.summary = summary
+    term_obj.category = post.get("category", "General")
+    term_obj.content_markdown = cleaned_content
+    term_obj.updated_at = datetime.utcnow()
+
+    db.commit()
+    print(f"✅ Webhook Synced Wiki Term: {term_title} (slug: {slug})")
+
+
 @app.post("/webhooks/github")
 async def github_webhook(request: Request, db: Session = Depends(get_db)):
     raw_body = await request.body()
@@ -1417,6 +1465,7 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
         )
 
     payload = await request.json()
+
     commits = payload.get("commits", [])
     repo_full_name = payload.get("repository", {}).get("full_name")
     ref = payload.get("ref", "")
@@ -1424,6 +1473,7 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
     github_token = os.getenv("GITHUB_TOKEN")
 
     for commit in commits:
+        # 1. Handle Added / Modified files
         modified_files = commit.get("added", []) + commit.get("modified", [])
         for file_path in modified_files:
             if file_path.endswith(".md"):
@@ -1435,14 +1485,23 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
                     req = urllib.request.Request(raw_url, headers=headers)
                     with urllib.request.urlopen(req) as resp:
                         md_text = resp.read().decode("utf-8")
-                        sync_github_md_file(md_text, file_path, db)
+
+                        # ROUTE: wiki/ goes to WikiTerm, everything else to KB Article
+                        if file_path.startswith("wiki/"):
+                            sync_github_wiki_file(md_text, file_path, db)
+                        else:
+                            sync_github_md_file(md_text, file_path, db)
                 except Exception as e:
                     print(f"❌ Failed to fetch {raw_url}: {e}")
 
+        # 2. Handle Removed / Moved files
         removed_files = commit.get("removed", [])
         for file_path in removed_files:
             if file_path.endswith(".md"):
-                delete_github_md_file(file_path, db)
+                if file_path.startswith("wiki/"):
+                    delete_github_wiki_file(file_path, db)
+                else:
+                    delete_github_md_file(file_path, db)
 
     return {"status": "success", "synced": True}
 
@@ -1545,3 +1604,70 @@ def logout_user():
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     response.delete_cookie(key="auth_session")
     return response
+
+
+# --- WIKI & GLOSSARY ROUTES ---
+
+
+@app.get("/wiki")
+@app.get("/wiki.html")
+def wiki_index(
+    request: Request, q: Optional[str] = None, db: Session = Depends(get_db)
+):
+    current_user = get_current_user(request, db)
+    query = db.query(WikiTerm)
+
+    if q:
+        search_str = f"%{q.strip()}%"
+        query = query.filter(
+            (WikiTerm.term.ilike(search_str))
+            | (WikiTerm.summary.ilike(search_str))
+            | (WikiTerm.category.ilike(search_str))
+        )
+
+    terms = query.order_by(WikiTerm.term.asc()).all()
+
+    # Group terms alphabetically A-Z
+    terms_by_letter = {}
+    for t in terms:
+        first_char = t.term[0].upper() if t.term else "#"
+        if not first_char.isalpha():
+            first_char = "#"
+        terms_by_letter.setdefault(first_char, []).append(t)
+
+    # Sort dictionary keys alphabetically
+    sorted_grouped_terms = dict(sorted(terms_by_letter.items()))
+
+    return templates.TemplateResponse(
+        request=request,
+        name="wiki.html",
+        context={"user": current_user, "terms_by_letter": sorted_grouped_terms, "q": q},
+    )
+
+
+@app.get("/wiki/{slug}")
+def wiki_detail(slug: str, request: Request, db: Session = Depends(get_db)):
+    current_user = get_current_user(request, db)
+    term = db.query(WikiTerm).filter(WikiTerm.slug == slug.lower().strip()).first()
+    if not term:
+        return RedirectResponse(url="/wiki", status_code=status.HTTP_302_FOUND)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="wiki_detail.html",
+        context={"user": current_user, "term": term},
+    )
+
+
+# Fast JSON API for Hover Preview Tooltips
+@app.get("/api/wiki/{slug}/summary")
+def wiki_summary_api(slug: str, db: Session = Depends(get_db)):
+    term = db.query(WikiTerm).filter(WikiTerm.slug == slug.lower().strip()).first()
+    if not term:
+        return {"error": "Term not found"}, 404
+    return {
+        "term": term.term,
+        "slug": term.slug,
+        "summary": term.summary,
+        "category": term.category,
+    }
