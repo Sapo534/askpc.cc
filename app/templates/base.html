@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}askpc.cc — Tech Knowledge & Community{% endblock %}</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2">
 </head>
 <body>
 
@@ -13,6 +13,8 @@
             <a href="/" class="logo">askpc.cc</a>
             <nav class="main-nav">
                 <a href="/kb">Knowledge Base</a>
+                <!-- New Wiki Nav Link -->
+                <a href="/wiki">Wiki</a>
                 <a href="/forum">Forum</a>
                 <a href="/community">Community</a>
             </nav>
@@ -44,5 +46,77 @@
         </div>
     </footer>
 
+    <!-- Universal Wiki Hover Popover Element -->
+    <div id="wiki-popover" class="wiki-popover" style="display: none;">
+        <div class="wiki-popover-title">
+            <span id="wiki-popover-term">Term</span>
+            <span id="wiki-popover-cat" class="wiki-popover-cat">TECH</span>
+        </div>
+        <div id="wiki-popover-summary" class="wiki-popover-summary">Summary loading...</div>
+        <div class="wiki-popover-hint">Click to read full definition &rarr;</div>
+    </div>
+
+    <!-- Lightweight Wiki Tooltip Script (Under 1KB, No Dependencies) -->
+    <script>
+    (function() {
+        const popover = document.getElementById('wiki-popover');
+        const popTerm = document.getElementById('wiki-popover-term');
+        const popCat = document.getElementById('wiki-popover-cat');
+        const popSummary = document.getElementById('wiki-popover-summary');
+        const cache = {};
+        let activeLink = null;
+
+        document.addEventListener('mouseover', async function(e) {
+            const link = e.target.closest('a[href*="/wiki/"]');
+            if (!link || link.getAttribute('href') === '/wiki') return;
+
+            activeLink = link;
+            const parts = link.pathname.split('/').filter(Boolean);
+            if (parts.length < 2) return;
+            const slug = parts[1];
+
+            // Position popover near the link
+            const rect = link.getBoundingClientRect();
+            let top = rect.bottom + 8;
+            let left = rect.left;
+            if (left + 320 > window.innerWidth) left = window.innerWidth - 330;
+            if (left < 10) left = 10;
+
+            popover.style.top = top + 'px';
+            popover.style.left = left + 'px';
+            popover.style.display = 'block';
+
+            if (cache[slug]) {
+                render(cache[slug]);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/wiki/' + encodeURIComponent(slug) + '/summary');
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                cache[slug] = data;
+                if (activeLink === link) render(data);
+            } catch (err) {
+                popover.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('mouseout', function(e) {
+            const link = e.target.closest('a[href*="/wiki/"]');
+            if (link && link === activeLink) {
+                activeLink = null;
+                popover.style.display = 'none';
+            }
+        });
+
+        function render(data) {
+            popTerm.textContent = data.term;
+            popCat.textContent = data.category || 'WIKI';
+            popSummary.textContent = data.summary;
+            popover.style.display = 'block';
+        }
+    })();
+    </script>
 </body>
 </html>
