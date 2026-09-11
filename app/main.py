@@ -1408,16 +1408,25 @@ def delete_github_wiki_file(file_path: str, db: Session):
         print(f"🗑️ Cleaned up deleted wiki term: {slug}")
 
 
+# Global Helper to convert Obsidian [[Wiki Links]] -> Markdown [Text](/prefix/slug)
+def convert_obsidian_wikilinks(text: str, default_prefix: str = "kb") -> str:
+    def replace_wikilink(match):
+        target = match.group(1).strip()
+        display = match.group(2).strip() if match.group(2) else target
+        link_slug = re.sub(r"[^a-z0-9]+", "-", target.lower()).strip("-")
+        return f"[{display}](/{default_prefix}/{link_slug})"
+
+    return re.sub(r"\[\[([^\|\]]+)(?:\|([^\]]+))?\]\]", replace_wikilink, text)
+
+
 def sync_github_wiki_file(md_content: str, file_path: str, db: Session):
     post = frontmatter.loads(md_content)
     stem = Path(file_path).stem
     term_title = post.get("term") or post.get("title") or stem.replace("-", " ").title()
     slug = re.sub(r"[^a-z0-9]+", "-", stem.lower()).strip("-")
 
-    # Extract summary for tooltip
     summary = post.get("summary")
     if not summary:
-        # Fallback: take the first non-header line as summary
         lines = [
             l.strip()
             for l in post.content.split("\n")
@@ -1425,7 +1434,7 @@ def sync_github_wiki_file(md_content: str, file_path: str, db: Session):
         ]
         summary = lines[0][:300] if lines else f"Technical definition for {term_title}"
 
-    cleaned_content = convert_obsidian_wikilinks(post.content)
+    cleaned_content = convert_obsidian_wikilinks(post.content, default_prefix="wiki")
 
     term_obj = db.query(WikiTerm).filter(WikiTerm.slug == slug).first()
     if not term_obj:
