@@ -142,6 +142,17 @@
             <button type="submit" class="btn btn-outline">Update Password</button>
         </form>
     </div>
+    
+    <!-- 6. Security: Log out everywhere -->
+    <div style="margin-top: 25px; padding-top: 25px; border-top: 1px solid var(--border-color);">
+        <h3>Active Sessions</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+            If you suspect your account was accessed from another device, you can log out everywhere at once. You'll need to log in again here too.
+        </p>
+        <form action="/settings/security/logout-everywhere" method="POST">
+            <button type="submit" class="btn btn-outline" style="color: #ff0000; border-color: #ff0000;">Log Out Everywhere</button>
+        </form>
+    </div>
 
 </div>
 {% endblock %}
