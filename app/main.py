@@ -11,15 +11,25 @@ import time
 import json
 import urllib.request
 import requests
+import base64
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from PIL import Image
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, Request, Depends, Form, status, UploadFile, File
+from fastapi import (
+    FastAPI,
+    Request,
+    Depends,
+    Form,
+    status,
+    UploadFile,
+    File,
+    HTTPException,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -50,7 +60,7 @@ from .auth import (
     hash_password,
     verify_password,
     create_session_token,
-    verify_session_token,
+    serializer,
     SECRET_KEY,
 )
 
@@ -65,6 +75,10 @@ SOLANA_WALLET = os.getenv(
     "SOLANA_WALLET_ADDRESS", "9xQeWvG816bUx9EPjHmaT23yvVM2VYdeHzM2a6C3Vfc"
 )
 ALLOWED_HOSTS = {"askpc.cc", "www.askpc.cc", "localhost:8000", "127.0.0.1:8000"}
+
+# NOTE: dummy bcrypt hash used to keep /auth/login response time constant
+# whether or not the given email actually exists (mitigates user enumeration).
+DUMMY_HASH = hash_password("dummy_password_never_used_1234567890")
 
 # FastAPI App Init
 app = FastAPI(title="askpc.cc", docs_url=None, redoc_url=None, openapi_url=None)
@@ -104,6 +118,42 @@ oauth.register(
     api_base_url="https://api.github.com/",
     client_kwargs={"scope": "user:email"},
 )
+
+
+# --- Time / Sponsor helpers --------------------------------------------------
+
+
+def _now_utc() -> datetime:
+    """Naive UTC 'now', matching the rest of this module's datetime usage."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def count_active_sponsors(db: Session) -> int:
+    """Count sponsors whose subscription has not expired."""
+    return (
+        db.query(User)
+        .filter(
+            User.is_sponsor == True,
+            User.sponsor_until.isnot(None),
+            User.sponsor_until > _now_utc(),
+        )
+        .count()
+    )
+
+
+def refresh_sponsor_status(user: User) -> bool:
+    """Downgrade a user if their sponsor_until has passed. Returns True if mutated."""
+    if user.is_sponsor and user.sponsor_until and user.sponsor_until <= _now_utc():
+        user.is_sponsor = False
+        return True
+    return False
+
+
+def hash_token(token: str) -> str:
+    """One-way fingerprint for storing verification/reset tokens in the DB.
+    We never store the raw token — only this hash — so a DB dump alone
+    can't be used to take over accounts via these tokens."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 # CSRF & Security Headers Middleware
@@ -262,10 +312,27 @@ def get_current_user(request: Request, db: Session) -> Optional[User]:
     token = request.cookies.get("auth_session")
     if not token:
         return None
-    user_id = verify_session_token(token)
-    if user_id:
-        return db.query(User).filter(User.id == user_id).first()
-    return None
+
+    # Decode without trusting "sv" yet — we need the user row to know
+    # their CURRENT session_version to compare against.
+    try:
+        data = serializer.loads(token, max_age=MAX_AGE_30_DAYS)
+    except Exception:
+        return None
+
+    user = db.query(User).filter(User.id == data.get("user_id")).first()
+    if not user:
+        return None
+
+    # If the stamped session_version doesn't match the user's current one,
+    # this cookie was issued before a password change / logout-everywhere /
+    # GitHub unlink — treat it as invalid.
+    if data.get("sv") != user.session_version:
+        return None
+
+    if refresh_sponsor_status(user):
+        db.commit()
+    return user
 
 
 # Email Senders via requests API
@@ -351,9 +418,18 @@ def send_reset_password_email(to_email: str, username: str, token: str):
         print(f"❌ Failed to send reset email: {e}")
 
 
+# Inline 16x16 PNG favicon (no external asset required)
+_FAVICON = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAA"
+    "AARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3"
+    "YXJlAHBhaW50Lm5ldCA0LjAuMhYSP0YAAAAcSURBVDhPYxgFWAZQGxgYGP4zMDAw"
+    "/KfSGA0YAGqYAgZ8bL1PAAAAAElFTkSuQmCC"
+)
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse("app/static/style.css")
+    return Response(content=_FAVICON, media_type="image/png")
 
 
 # --- MAIN NAVIGATION & SEARCH ---
@@ -390,11 +466,12 @@ def kb_page(
 ):
     current_user = get_current_user(request, db)
     query = db.query(Article).distinct()
+
     if q:
         search_str = f"%{q.strip()}%"
         query = (
-            query.outerjoin(ArticleTag)
-            .outerjoin(Tag)
+            query.outerjoin(ArticleTag, ArticleTag.article_id == Article.id)
+            .outerjoin(Tag, Tag.id == ArticleTag.tag_id)
             .filter(
                 (Article.title.ilike(search_str))
                 | (Article.content_markdown.ilike(search_str))
@@ -402,8 +479,11 @@ def kb_page(
                 | (Tag.name.ilike(search_str))
             )
         )
+
     if tag:
-        query = query.join(ArticleTag).join(Tag).filter(Tag.name == tag.lower().strip())
+        clean_tag = tag.lower().strip()
+        query = query.filter(Article.tags.any(Tag.name == clean_tag))
+
     articles = query.all()
     return templates.TemplateResponse(
         request=request,
@@ -435,11 +515,12 @@ def forum_page(
 ):
     current_user = get_current_user(request, db)
     query = db.query(ForumThread).distinct()
+
     if q:
         search_str = f"%{q.strip()}%"
         query = (
-            query.outerjoin(ThreadTag)
-            .outerjoin(Tag)
+            query.outerjoin(ThreadTag, ThreadTag.thread_id == ForumThread.id)
+            .outerjoin(Tag, Tag.id == ThreadTag.tag_id)
             .outerjoin(User, ForumThread.author_id == User.id)
             .filter(
                 (ForumThread.title.ilike(search_str))
@@ -448,8 +529,11 @@ def forum_page(
                 | (User.username.ilike(search_str))
             )
         )
+
     if tag:
-        query = query.join(ThreadTag).join(Tag).filter(Tag.name == tag.lower().strip())
+        clean_tag = tag.lower().strip()
+        query = query.filter(ForumThread.tags.any(Tag.name == clean_tag))
+
     threads = query.order_by(ForumThread.created_at.desc()).all()
     return templates.TemplateResponse(
         request=request,
@@ -486,7 +570,7 @@ def tag_detail_page(tag_name: str, request: Request, db: Session = Depends(get_d
 @app.get("/community.html")
 def community_page(request: Request, db: Session = Depends(get_db)):
     current_user = get_current_user(request, db)
-    active_sponsors_count = db.query(User).filter(User.is_sponsor == True).count()
+    active_sponsors_count = count_active_sponsors(db)
     progress_percent = min(100, int((active_sponsors_count / 10) * 100))
     return templates.TemplateResponse(
         request=request,
@@ -506,15 +590,18 @@ USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
 
 
 @app.post("/community/sponsor/verify")
+@limiter.limit("10/hour")
 def verify_solana_payment(
-    request: Request, tx_hash: str = Form(...), db: Session = Depends(get_db)
+    request: Request,
+    tx_hash: str = Form(...),
+    db: Session = Depends(get_db),
 ):
     current_user = get_current_user(request, db)
     if not current_user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
     def render_error(msg: str):
-        active_sponsors = db.query(User).filter(User.is_sponsor == True).count()
+        active_sponsors = count_active_sponsors(db)
         return templates.TemplateResponse(
             request=request,
             name="community.html",
@@ -529,7 +616,7 @@ def verify_solana_payment(
 
     tx_clean = tx_hash.strip()
 
-    # 1. Base58 format check (Standard Solana Signature is 64-96 chars base58)
+    # 1. Base58 format check (Solana Tx Signature)
     if not re.match(r"^[1-9A-HJ-NP-Za-km-z]{64,96}$", tx_clean):
         return render_error(
             "Invalid Solana transaction signature format. Please check the hash."
@@ -577,7 +664,8 @@ def verify_solana_payment(
     result = data.get("result")
     if not result:
         return render_error(
-            "Transaction not found on Solana blockchain. Please wait a minute for confirmation."
+            "Transaction not found on Solana blockchain. "
+            "Please wait a minute for confirmation."
         )
 
     # 4. Check if transaction succeeded on-chain
@@ -585,11 +673,10 @@ def verify_solana_payment(
     if meta.get("err") is not None:
         return render_error("This transaction failed on the Solana blockchain.")
 
-    # 5. Verify USDT balance increase for our wallet
+    # 5. Verify USDT balance increase for configured wallet
     pre_balances = meta.get("preTokenBalances") or []
     post_balances = meta.get("postTokenBalances") or []
 
-    # Calculate net USDT transferred to our wallet
     pre_amount = 0.0
     for b in pre_balances:
         if b.get("owner") == SOLANA_WALLET and b.get("mint") == USDT_MINT:
@@ -602,58 +689,84 @@ def verify_solana_payment(
 
     received_usdt = post_amount - pre_amount
 
-    # Must receive at least 2.00 USDT
+    # Must receive at least 1.99 USDT (accounting for minor rounding)
     if received_usdt < 1.99:
         return render_error(
-            f"Transaction verified, but received {received_usdt:.2f} USDT instead of 2.00 USDT to {SOLANA_WALLET}."
+            f"Transaction verified, but received {received_usdt:.2f} USDT "
+            "instead of required amount."
         )
 
-    # 6. Verify Memo contains user's public_id
-    raw_tx_str = json.dumps(result)
-    if current_user.public_id not in raw_tx_str:
+    # 6. Strict Memo validation — the memo must contain an unambiguous,
+    #    delimited match for this user's public_id.
+    required_memo = f"askpc:{current_user.public_id}"
+
+    def _iter_instructions(node):
+        """Recursively walk top-level and inner instructions."""
+        for ix in node.get("instructions", []) or []:
+            yield ix
+            for inner in ix.get("innerInstructions", []) or []:
+                yield from _iter_instructions({"instructions": [inner]})
+        for inner_group in node.get("innerInstructions", []) or []:
+            yield from _iter_instructions(inner_group)
+
+    MEMO_PROGRAMS = {
+        "spl-memo",
+        "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+        "Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo",
+    }
+
+    memo_found = False
+    tx_msg = result.get("transaction", {}).get("message", {}) or {}
+    for ix in _iter_instructions(tx_msg):
+        program = ix.get("program") or ix.get("programId")
+        if program not in MEMO_PROGRAMS:
+            continue
+        parsed = ix.get("parsed")
+        memo_text = parsed if isinstance(parsed, str) else str(parsed or "")
+        if required_memo in memo_text:
+            memo_found = True
+            break
+        # Tight word-boundary fallback for users who sent just the public_id.
+        if re.search(
+            rf"(?<!\w){re.escape(str(current_user.public_id))}(?!\w)", memo_text
+        ):
+            memo_found = True
+            break
+
+    if not memo_found:
         return render_error(
-            f"Transaction does not contain your required Memo ({current_user.public_id})."
+            f"Transaction does not contain your required Memo ({required_memo})."
         )
 
-    # 7. SUCCESS: Record payment and grant 30 days of Sponsor status
+    # 7. SUCCESS: Record payment and extend Sponsor status by 30 days.
     new_pay = Payment(
-        user_id=current_user.id, tx_hash=tx_clean, amount_usdt=received_usdt
+        user_id=current_user.id,
+        tx_hash=tx_clean,
+        amount_usdt=received_usdt,
     )
     db.add(new_pay)
 
+    now_utc = _now_utc()
+    current_expiry = current_user.sponsor_until or now_utc
+    base = max(current_expiry, now_utc)
     current_user.is_sponsor = True
-    current_user.sponsor_until = datetime.utcnow() + timedelta(days=30)
+    current_user.sponsor_until = base + timedelta(days=30)
     db.commit()
 
-    active_sponsors = db.query(User).filter(User.is_sponsor == True).count()
+    active_sponsors = count_active_sponsors(db)
     return templates.TemplateResponse(
         request=request,
         name="community.html",
         context={
             "user": current_user,
-            "message": "🎉 Payment verified successfully on Solana blockchain! Sponsor status is active for 30 days.",
+            "message": (
+                "🎉 Payment verified successfully on Solana blockchain! "
+                "Sponsor status is active for 30 days."
+            ),
             "solana_wallet": SOLANA_WALLET,
             "active_sponsors_count": active_sponsors,
             "progress_percent": min(100, int((active_sponsors / 10) * 100)),
         },
-    )
-
-
-@app.get("/rules")
-@app.get("/rules.html")
-def rules_page(request: Request, db: Session = Depends(get_db)):
-    current_user = get_current_user(request, db)
-    return templates.TemplateResponse(
-        request=request, name="rules.html", context={"user": current_user}
-    )
-
-
-@app.get("/privacy")
-@app.get("/privacy.html")
-def privacy_page(request: Request, db: Session = Depends(get_db)):
-    current_user = get_current_user(request, db)
-    return templates.TemplateResponse(
-        request=request, name="privacy.html", context={"user": current_user}
     )
 
 
@@ -689,7 +802,10 @@ def create_thread(
             name="create_thread.html",
             context={
                 "user": current_user,
-                "error": "Email verification required before posting. Please check your inbox or settings.",
+                "error": (
+                    "Email verification required before posting. "
+                    "Please check your inbox or settings."
+                ),
             },
         )
 
@@ -749,6 +865,7 @@ def thread_detail(slug: str, request: Request, db: Session = Depends(get_db)):
 
 
 @app.post("/forum/thread/{slug}/reply")
+@limiter.limit("20/minute")
 def add_reply(
     slug: str,
     request: Request,
@@ -814,6 +931,7 @@ def add_reply(
 
 
 @app.post("/forum/thread/{slug}/vote")
+@limiter.limit("30/minute")
 def vote_thread(
     slug: str,
     request: Request,
@@ -823,6 +941,8 @@ def vote_thread(
     current_user = get_current_user(request, db)
     if not current_user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    if not current_user.is_email_verified:
+        return RedirectResponse(url="/forum", status_code=status.HTTP_302_FOUND)
     thread = db.query(ForumThread).filter(ForumThread.slug == slug).first()
     if not thread:
         return RedirectResponse(url="/forum", status_code=status.HTTP_302_FOUND)
@@ -858,6 +978,7 @@ def vote_thread(
 
 
 @app.post("/forum/reply/{reply_id}/vote")
+@limiter.limit("30/minute")
 def vote_reply(
     reply_id: int,
     request: Request,
@@ -870,6 +991,10 @@ def vote_reply(
     reply = db.query(ForumReply).filter(ForumReply.id == reply_id).first()
     if not reply:
         return RedirectResponse(url="/forum", status_code=status.HTTP_302_FOUND)
+    if not current_user.is_email_verified:
+        return RedirectResponse(
+            url=f"/forum/thread/{reply.thread.slug}", status_code=status.HTTP_302_FOUND
+        )
     vote_val = 1 if direction == "up" else -1
     existing_vote = (
         db.query(ReplyVote)
@@ -978,7 +1103,10 @@ def change_username(
             name="settings.html",
             context={
                 "user": current_user,
-                "error": f"Username can only be changed once every 14 days. Next available on {next_date}.",
+                "error": (
+                    "Username can only be changed once every 14 days. "
+                    f"Next available on {next_date}."
+                ),
             },
         )
     existing = (
@@ -1021,7 +1149,10 @@ def change_email(
             name="settings.html",
             context={
                 "user": current_user,
-                "error": f"Email can only be changed once every 14 days. Next available on {next_date}.",
+                "error": (
+                    "Email can only be changed once every 14 days. "
+                    f"Next available on {next_date}."
+                ),
             },
         )
     existing = (
@@ -1038,7 +1169,7 @@ def change_email(
     token = secrets.token_urlsafe(32)
     current_user.email = new_email.strip()
     current_user.is_email_verified = False
-    current_user.email_verification_token = token
+    current_user.email_verification_token = hash_token(token)
     current_user.last_email_change = datetime.utcnow()
     db.commit()
     send_verification_email(new_email.strip(), current_user.username, token)
@@ -1082,22 +1213,38 @@ def change_password(
             name="settings.html",
             context={
                 "user": current_user,
-                "error": f"Password can only be changed once every 14 days. Next available on {next_date}.",
+                "error": (
+                    "Password can only be changed once every 14 days. "
+                    f"Next available on {next_date}."
+                ),
             },
         )
     current_user.hashed_password = hash_password(new_password)
     current_user.last_password_change = datetime.utcnow()
+    # Kill every other active session (and this one) — anyone holding an
+    # old auth_session cookie for this account is logged out immediately.
+    current_user.session_version = secrets.token_hex(8)
     db.commit()
-    return templates.TemplateResponse(
+
+    response = templates.TemplateResponse(
         request=request,
         name="settings.html",
-        context={"user": current_user, "message": "Password updated successfully!"},
+        context={
+            "user": current_user,
+            "message": "Password updated successfully! Please log in again.",
+        },
     )
+    response.delete_cookie(key="auth_session")
+    return response
 
 
 @app.get("/verify-email")
 def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email_verification_token == token).first()
+    user = (
+        db.query(User)
+        .filter(User.email_verification_token == hash_token(token))
+        .first()
+    )
     if not user:
         return templates.TemplateResponse(
             request=request,
@@ -1128,7 +1275,7 @@ def process_forgot_password(
     user = db.query(User).filter(User.email == email.strip()).first()
     if user:
         token = secrets.token_urlsafe(32)
-        user.reset_password_token = token
+        user.reset_password_token = hash_token(token)
         user.reset_password_expiry = datetime.utcnow() + timedelta(hours=1)
         db.commit()
         send_reset_password_email(user.email, user.username, token)
@@ -1137,14 +1284,17 @@ def process_forgot_password(
         request=request,
         name="forgot_password.html",
         context={
-            "message": "If an account with that email exists, a password reset link has been sent."
+            "message": (
+                "If an account with that email exists, "
+                "a password reset link has been sent."
+            )
         },
     )
 
 
 @app.get("/reset-password")
 def reset_password_page(token: str, request: Request, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.reset_password_token == token).first()
+    user = db.query(User).filter(User.reset_password_token == hash_token(token)).first()
     if (
         not user
         or not user.reset_password_expiry
@@ -1168,7 +1318,7 @@ def process_reset_password(
     new_password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.reset_password_token == token).first()
+    user = db.query(User).filter(User.reset_password_token == hash_token(token)).first()
     if (
         not user
         or not user.reset_password_expiry
@@ -1184,12 +1334,32 @@ def process_reset_password(
     user.reset_password_token = None
     user.reset_password_expiry = None
     user.last_password_change = datetime.utcnow()
+    # Password reset almost always means "I think someone else has access" —
+    # nuke every existing session, including any the attacker might hold.
+    user.session_version = secrets.token_hex(8)
     db.commit()
 
     return RedirectResponse(
         url="/login?message=Password+reset+successful!+Please+log+in.",
         status_code=status.HTTP_302_FOUND,
     )
+
+
+@app.post("/settings/security/logout-everywhere")
+def logout_everywhere(request: Request, db: Session = Depends(get_db)):
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
+    current_user.session_version = secrets.token_hex(8)
+    db.commit()
+
+    response = RedirectResponse(
+        url="/settings?message=Logged+out+everywhere.+Please+log+in+again.",
+        status_code=status.HTTP_302_FOUND,
+    )
+    response.delete_cookie(key="auth_session")
+    return response
 
 
 @app.get("/u/{username}")
@@ -1232,54 +1402,88 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
         gh_username = profile.get("login")
         avatar = profile.get("avatar_url")
 
+        # Resolve the email + whether GitHub has verified it.
         email = profile.get("email")
-        if not email:
+        github_email_verified = False
+        if email:
+            # Public profile email is only present when the user chose to
+            # expose it, and GitHub considers it a verified address in that case.
+            github_email_verified = True
+        else:
             emails_resp = await oauth.github.get("user/emails", token=token)
             emails = emails_resp.json()
-            primary_email = next((e["email"] for e in emails if e.get("primary")), None)
-            email = primary_email or f"{gh_username}@github.oauth"
+            primary = next((e for e in emails if e.get("primary")), None)
+            if primary:
+                email = primary.get("email")
+                github_email_verified = bool(primary.get("verified"))
+
+        if not email:
+            # Cannot reliably identify the user without a verified email.
+            return RedirectResponse(
+                url="/login?error=GitHub+account+has+no+verified+email",
+                status_code=status.HTTP_302_FOUND,
+            )
 
         current_user = get_current_user(request, db)
 
+        # --- Case 1: logged-in user linking GitHub to their account ---
         if current_user:
             existing = (
                 db.query(User)
-                .filter(User.github_username == gh_username, User.id != current_user.id)
+                .filter(
+                    User.github_username == gh_username,
+                    User.id != current_user.id,
+                )
                 .first()
             )
             if existing:
                 return RedirectResponse(
-                    url=f"/settings?error=GitHub+account+@{gh_username}+is+already+linked+to+another+user",
+                    url=(
+                        f"/settings?error=GitHub+account+@{gh_username}"
+                        "+is+already+linked+to+another+user"
+                    ),
                     status_code=status.HTTP_302_FOUND,
                 )
 
             current_user.github_username = gh_username
-            current_user.is_email_verified = True
+            # Only mark email verified if GitHub confirms this is the same
+            # address and it is verified. Do NOT blanket-trust GitHub login.
+            if github_email_verified and current_user.email == email:
+                current_user.is_email_verified = True
             if current_user.avatar_url == "/static/default-avatar.png" and avatar:
                 current_user.avatar_url = avatar
 
             db.commit()
             return RedirectResponse(
-                url=f"/settings?message=GitHub+account+@{gh_username}+linked+successfully!",
+                url=(
+                    f"/settings?message=GitHub+account+@{gh_username}"
+                    "+linked+successfully!"
+                ),
                 status_code=status.HTTP_302_FOUND,
             )
 
-        user = (
-            db.query(User)
-            .filter(
-                (User.email == email)
-                | (User.github_username == gh_username)
-                | (User.username == gh_username)
-            )
-            .first()
-        )
+        # --- Case 2: fresh GitHub login ---
+        # Only match existing accounts by already-linked GitHub username OR
+        # by a VERIFIED email. Never match by `User.username`.
+        user = db.query(User).filter(User.github_username == gh_username).first()
+        if not user and github_email_verified:
+            user = db.query(User).filter(User.email == email).first()
+
         if not user:
+            # GitHub username may collide with an existing local username.
+            base_username = gh_username
+            candidate = base_username
+            counter = 1
+            while db.query(User).filter(User.username == candidate).first():
+                counter += 1
+                candidate = f"{base_username}{counter}"
+
             user = User(
-                username=gh_username,
+                username=candidate,
                 github_username=gh_username,
                 email=email,
                 avatar_url=avatar,
-                is_email_verified=True,
+                is_email_verified=github_email_verified,
             )
             db.add(user)
             db.commit()
@@ -1287,10 +1491,12 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
         else:
             if not user.github_username:
                 user.github_username = gh_username
-                db.commit()
+            if github_email_verified:
+                user.is_email_verified = True
+            db.commit()
 
         response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-        session_token = create_session_token(user.id)
+        session_token = create_session_token(user.id, user.session_version)
         response.set_cookie(
             key="auth_session",
             value=session_token,
@@ -1311,9 +1517,22 @@ async def github_callback(request: Request, db: Session = Depends(get_db)):
 @app.post("/settings/github/unlink")
 def unlink_github(request: Request, db: Session = Depends(get_db)):
     current_user = get_current_user(request, db)
-    if current_user:
-        current_user.github_username = None
-        db.commit()
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
+    # Refuse to unlink if it would leave the account with no login method.
+    has_password = bool(current_user.hashed_password)
+    if not has_password:
+        return RedirectResponse(
+            url=(
+                "/settings?error=Cannot+unlink+GitHub+-+you+have+no+password+set."
+                "+Please+set+a+password+first."
+            ),
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    current_user.github_username = None
+    db.commit()
     return RedirectResponse(
         url="/settings?message=GitHub+account+unlinked",
         status_code=status.HTTP_302_FOUND,
@@ -1486,7 +1705,10 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
         modified_files = commit.get("added", []) + commit.get("modified", [])
         for file_path in modified_files:
             if file_path.endswith(".md"):
-                raw_url = f"https://raw.githubusercontent.com/{repo_full_name}/{branch}/{file_path}"
+                raw_url = (
+                    f"https://raw.githubusercontent.com/"
+                    f"{repo_full_name}/{branch}/{file_path}"
+                )
                 try:
                     headers = {"User-Agent": "FastAPI-Docs-Webhook"}
                     if github_token:
@@ -1558,12 +1780,12 @@ def register_user(
     db.commit()
 
     token = secrets.token_urlsafe(32)
-    new_user.email_verification_token = token
+    new_user.email_verification_token = hash_token(token)
     db.commit()
     send_verification_email(new_user.email, new_user.username, token)
 
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    session_token = create_session_token(new_user.id)
+    session_token = create_session_token(new_user.id, new_user.session_version)
     response.set_cookie(
         key="auth_session",
         value=session_token,
@@ -1584,11 +1806,16 @@ def login_user(
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.email == email).first()
-    if (
-        not user
-        or not user.hashed_password
-        or not verify_password(password, user.hashed_password)
-    ):
+
+    # Always run verify_password — against the real hash if the user exists,
+    # against a dummy hash otherwise — so response timing doesn't leak
+    # whether a given email is registered (user enumeration mitigation).
+    hash_to_check = (
+        user.hashed_password if (user and user.hashed_password) else DUMMY_HASH
+    )
+    password_ok = verify_password(password, hash_to_check)
+
+    if not user or not user.hashed_password or not password_ok:
         return templates.TemplateResponse(
             request=request,
             name="login.html",
@@ -1596,7 +1823,7 @@ def login_user(
         )
 
     response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    token = create_session_token(user.id)
+    token = create_session_token(user.id, user.session_version)
     response.set_cookie(
         key="auth_session",
         value=token,
@@ -1673,10 +1900,12 @@ def wiki_detail(slug: str, request: Request, db: Session = Depends(get_db)):
 def wiki_summary_api(slug: str, db: Session = Depends(get_db)):
     term = db.query(WikiTerm).filter(WikiTerm.slug == slug.lower().strip()).first()
     if not term:
-        return {"error": "Term not found"}, 404
-    return {
-        "term": term.term,
-        "slug": term.slug,
-        "summary": term.summary,
-        "category": term.category,
-    }
+        raise HTTPException(status_code=404, detail="Term not found")
+    return JSONResponse(
+        {
+            "term": term.term,
+            "slug": term.slug,
+            "summary": term.summary,
+            "category": term.category,
+        }
+    )

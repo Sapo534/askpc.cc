@@ -49,6 +49,9 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=True)
     avatar_url = Column(String(255), default="/static/default-avatar.png")
+    session_version = Column(
+        String(16), default=lambda: secrets.token_hex(8), nullable=False
+    )
 
     experience_badge = Column(String(20), default="Teapot")
     system_role = Column(String(20), default="user")
