@@ -15,6 +15,15 @@ from app.utils import make_excerpt
 templates.env.filters["excerpt"] = make_excerpt
 templates.env.filters["markdown"] = render_markdown
 
+from pathlib import Path
+
+_STATIC = Path(__file__).parent / "static"
+
+def static_v(name: str) -> int:
+    return int((_STATIC / name).stat().st_mtime)
+
+templates.env.globals["static_v"] = static_v
+
 oauth = OAuth()
 oauth.register(
     name="github",
