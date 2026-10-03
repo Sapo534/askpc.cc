@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Open Source Notices — askpc.cc{% endblock %}
+
+{% block content %}
+<article class="static-page">
+    <h1>Open Source Notices</h1>
+    <p>askpc.cc is built on open-source software. We are grateful to the authors and maintainers of these projects. Each package remains the property of its respective copyright holders and is used under the license shown below.</p>
+
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Package</th><th>Version</th><th>License</th><th>Authors</th></tr>
+        </thead>
+        <tbody>
+        {% for p in packages %}
+            <tr>
+                <td>{% if p.url %}<a href="{{ p.url }}" rel="noopener noreferrer">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}</td>
+                <td>{{ p.version }}</td>
+                <td>{{ p.license }}</td>
+                <td>{% if p.author %}© {{ p.author }}{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <h2>Infrastructure</h2>
+    <p>The site runs on <a href="https://caddyserver.com">Caddy</a> (Apache-2.0), <a href="https://www.postgresql.org">PostgreSQL</a> (PostgreSQL License) and <a href="https://conduit.rs">Conduit</a> (Apache-2.0).</p>
+
+    <h2>Full license texts</h2>
+    <p>
+        <a href="https://spdx.org/licenses/MIT.html">MIT</a> ·
+        <a href="https://spdx.org/licenses/BSD-2-Clause.html">BSD-2-Clause</a> ·
+        <a href="https://spdx.org/licenses/BSD-3-Clause.html">BSD-3-Clause</a> ·
+        <a href="https://spdx.org/licenses/Apache-2.0.html">Apache-2.0</a> ·
+        <a href="https://spdx.org/licenses/MPL-2.0.html">MPL-2.0</a> ·
+        <a href="https://spdx.org/licenses/LGPL-3.0-or-later.html">LGPL</a> ·
+        <a href="https://spdx.org/licenses/ISC.html">ISC</a> ·
+        <a href="https://spdx.org/licenses/MIT-CMU.html">MIT-CMU</a> ·
+        <a href="https://spdx.org/licenses/PSF-2.0.html">PSF-2.0</a>
+    </p>
+    <p>The software is provided "as is", without warranty of any kind. The names of the authors are not used to endorse or promote askpc.cc.</p>
+    <p>Content published by users and the askpc.cc knowledge base itself are not covered by this page.</p>
+</article>
+{% endblock %}

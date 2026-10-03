@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from app.utils import load_licenses
+
 from ..core import templates
 from ..database import get_db
 from ..deps import get_current_user
@@ -41,6 +43,14 @@ def rules_page(request: Request, db: Session = Depends(get_db)):
         request=request, name="rules.html", context={"user": get_current_user(request, db)}
     )
 
+@router.get("/licenses")
+@router.get("/licenses.html")
+def licenses_page(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(
+        request=request,
+        name="licenses.html",
+        context={"user": get_current_user(request, db), "packages": load_licenses()},
+    )
 
 @router.get("/")
 @router.get("/index.html")
