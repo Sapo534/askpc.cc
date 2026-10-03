@@ -12,6 +12,7 @@ from ..deps import redirect, set_auth_cookie
 from ..models import User
 from ..services.email import send_reset_password_email, send_verification_email
 from ..services.tokens import hash_token, issue_token
+from ..config import REGISTRATION_OPEN
 
 router = APIRouter()
 
@@ -44,6 +45,8 @@ def login_page(request: Request):
 @router.get("/register")
 @router.get("/register.html")
 def register_page(request: Request):
+    if not REGISTRATION_OPEN:
+        return _render(request, "register.html", error="Registration is temporarily closed.")
     return _render(request, "register.html")
 
 
@@ -59,6 +62,8 @@ def register_user(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    if not REGISTRATION_OPEN:
+        return _render(request, "register.html", error="Registration is temporarily closed.")
     exists = (
         db.query(User)
         .filter((User.email == email) | (User.username == username))

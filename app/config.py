@@ -26,6 +26,7 @@ GITHUB_REPO = os.getenv("GITHUB_REPO")  # "owner/repo"
 GITHUB_SYNC_BRANCH = os.getenv("GITHUB_SYNC_BRANCH", "main")
 SYNC_DIRECTORIES = ("wiki/", "docs/")
 
+REGISTRATION_OPEN = os.getenv("REGISTRATION_OPEN", "0") == "1"
 
 def get_domain() -> str:
     """Read at call time so env changes / dotenv loading order don't matter."""
