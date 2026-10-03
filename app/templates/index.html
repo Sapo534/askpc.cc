@@ -27,7 +27,7 @@
                     <a href="/kb/{{ article.slug }}" class="card">
                         <span class="card-category">{{ article.category | upper }}</span>
                         <h3 class="card-title">{{ article.title }}</h3>
-                        <p class="card-desc">{{ article.content_markdown[:120] }}...</p>
+                        <p class="card-desc">{{ article.content_markdown|excerpt(120) }}</p>
                         <span class="card-meta">Updated {{ article.updated_at.strftime('%Y-%m-%d') }}</span>
                     </a>
                     {% endfor %}

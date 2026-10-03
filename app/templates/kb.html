@@ -34,7 +34,7 @@
                     <h3 class="card-title">
                         <a href="/kb/{{ article.slug }}" style="font-weight: 600;">{{ article.title }}</a>
                     </h3>
-                    <p class="card-desc">{{ article.content_markdown[:150] }}...</p>
+                    <p class="card-desc">{{ article.content_markdown|excerpt(150) }}</p>
                     <span class="card-meta">Updated {{ article.updated_at.strftime('%Y-%m-%d') }}</span>
                 </article>
                 {% endfor %}

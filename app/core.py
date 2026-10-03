@@ -11,6 +11,8 @@ from .services.markdown import render_markdown
 limiter = Limiter(key_func=get_remote_address)
 
 templates = Jinja2Templates(directory="app/templates")
+from app.utils import make_excerpt
+templates.env.filters["excerpt"] = make_excerpt
 templates.env.filters["markdown"] = render_markdown
 
 oauth = OAuth()

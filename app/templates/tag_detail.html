@@ -16,7 +16,7 @@
                 <article class="card">
                     <span class="card-category">{{ article.category | upper }}</span>
                     <h3 class="card-title"><a href="/kb">{{ article.title }}</a></h3>
-                    <p class="card-desc">{{ article.content_markdown[:150] }}...</p>
+                    <p class="card-desc">{{ article.content_markdown|excerpt(150) }}</p>
                 </article>
                 {% endfor %}
             {% else %}
