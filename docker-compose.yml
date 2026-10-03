@@ -1,15 +1,21 @@
-version: '3.8'
 
 services:
   web:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build: .
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - SECRET_KEY=${SECRET_KEY}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
       - RESEND_API_KEY=${RESEND_API_KEY}
+      - REGISTRATION_OPEN=${REGISTRATION_OPEN:-0}
+      - REGISTRATION_OPEN=${REGISTRATION_OPEN:-0}
       - DOMAIN=${DOMAIN}
       - SOLANA_WALLET_ADDRESS=${SOLANA_WALLET_ADDRESS}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
