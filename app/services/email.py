@@ -70,6 +70,7 @@ def send_verification_email(to_email: str, username: str, token: str) -> None:
             f"<h2>Welcome to askpc.cc, @{name}!</h2>"
             "<p>Please confirm your email address by clicking the link below:</p>"
             + _button(url, "Verify Email Address")
+            + _not_you("Unverified accounts are deleted automatically after 48 hours. ")
         ),
         dev_log=f"\n📧 [LOCAL DEV LOG] VERIFICATION LINK FOR @{username}: "
         f"http://localhost:8000/verify-email?token={token}\n",
@@ -86,7 +87,7 @@ def send_reset_password_email(to_email: str, username: str, token: str) -> None:
         html_body=_card(
             "<h2>Password Reset Request</h2>"
             f"<p>Hi @{name}, click the link below to set a new password. "
-            "Link is valid for 1 hour:</p>" + _button(url, "Set New Password")
+            "Link is valid for 1 hour:</p>" + _button(url, "Set New Password") + _not_you()
         ),
         dev_log=f"\n🔑 [LOCAL DEV LOG] RESET PASSWORD LINK FOR @{username}: "
         f"http://localhost:8000/reset-password?token={token}\n",
