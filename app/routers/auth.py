@@ -1,18 +1,24 @@
 """Email/password auth: register, login, logout, email verification, password reset."""
+import re
 import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
+from ..antibot import check_challenge, email_budget_ok
 from ..auth import hash_password, verify_password
 from ..core import limiter, templates
 from ..database import get_db
-from ..deps import redirect, set_auth_cookie
+from ..deps import redirect, set_auth_cookie, get_current_user
 from ..models import User
 from ..services.email import send_reset_password_email, send_verification_email
 from ..services.tokens import hash_token, issue_token
 from ..config import REGISTRATION_OPEN
+
+USERNAME_RE = re.compile(r"[A-Za-z0-9_-]{3,32}")
+EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 router = APIRouter()
 
@@ -60,17 +66,37 @@ def register_user(
     username: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
+    website: str = Form(""),       # honeypot
+    challenge: str = Form(""),
+    pow_nonce: str = Form(""),
     db: Session = Depends(get_db),
 ):
     if not REGISTRATION_OPEN:
         return _render(request, "register.html", error="Registration is temporarily closed.")
+
+    problem = check_challenge(challenge, pow_nonce, website)
+    if problem:
+        return _render(request, "register.html", error=problem)
+
+    username = username.strip()
+    email = email.strip().lower()
+    if not USERNAME_RE.fullmatch(username):
+        return _render(request, "register.html", error="Username: 3-32 characters, letters, digits, _ or -.")
+    if len(email) > 254 or not EMAIL_RE.fullmatch(email):
+        return _render(request, "register.html", error="Please enter a valid email address.")
+    if not 8 <= len(password) <= 128:
+        return _render(request, "register.html", error="Password must be 8-128 characters.")
+
     exists = (
         db.query(User)
-        .filter((User.email == email) | (User.username == username))
+        .filter((func.lower(User.email) == email) | (func.lower(User.username) == username.lower()))
         .first()
     )
     if exists:
         return _render(request, "register.html", error="Username or Email is already registered.")
+
+    if not email_budget_ok():
+        return _render(request, "register.html", error="Too many sign-ups right now. Please try again later.")
 
     new_user = User(username=username, email=email, hashed_password=hash_password(password))
     db.add(new_user)
@@ -85,7 +111,6 @@ def register_user(
     set_auth_cookie(response, new_user)
     return response
 
-
 @router.post("/auth/login")
 @limiter.limit("5/minute")
 def login_user(
@@ -94,7 +119,7 @@ def login_user(
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
 
     # Always verify against *some* hash so timing doesn't reveal registered emails.
     hash_to_check = user.hashed_password if (user and user.hashed_password) else DUMMY_HASH
@@ -117,17 +142,29 @@ def logout_user():
 
 # --- email verification ---
 
-
 @router.get("/verify-email")
-def verify_email(token: str, request: Request, db: Session = Depends(get_db)):
+def verify_email_page(token: str, request: Request, db: Session = Depends(get_db)):
+    # GET only shows a button: mail scanners that prefetch links must not consume the token.
     user = db.query(User).filter(User.email_verification_token == hash_token(token)).first()
     if not user:
-        return _render(request, "settings.html", error="Invalid or expired verification token.")
+        return redirect("/settings?error=Invalid+or+expired+verification+link.+Request+a+new+one+in+Settings.")
+    return templates.TemplateResponse(
+        request=request,
+        name="verify_email.html",
+        context={"user": get_current_user(request, db), "token": token},
+    )
+
+
+@router.post("/verify-email")
+@limiter.limit("20/hour")
+def verify_email(request: Request, token: str = Form(...), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email_verification_token == hash_token(token)).first()
+    if not user:
+        return redirect("/settings?error=Invalid+or+expired+verification+link.+Request+a+new+one+in+Settings.")
     user.is_email_verified = True
     user.email_verification_token = None
     db.commit()
     return redirect("/settings?message=Email+verified+successfully!")
-
 
 # --- password reset ---
 
@@ -142,7 +179,7 @@ def forgot_password_page(request: Request):
 def process_forgot_password(
     request: Request, email: str = Form(...), db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.email == email.strip()).first()
+    user = db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
     if user:
         raw_token, token_hash = issue_token()
         user.reset_password_token = token_hash

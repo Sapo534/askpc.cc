@@ -24,6 +24,12 @@ def _button(url: str, label: str) -> str:
         f'border-radius: 4px;">{label}</a></p>'
     )
 
+def _not_you(extra: str = "") -> str:
+    return (
+        '<p style="color: #666; font-size: 13px;">'
+        f"Didn't request this? Just ignore this email. {extra}"
+        f"Questions: abuse@{get_domain()}</p>"
+    )
 
 def _send(*, to_email: str, subject: str, html_body: str, dev_log: str, ok_log: str) -> None:
     api_key = os.getenv("RESEND_API_KEY")

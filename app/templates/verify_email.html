@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm email — askpc.cc{% endblock %}
+
+{% block content %}
+<article class="static-page" style="max-width: 400px; margin-top: 40px;">
+    <h1>Confirm your email</h1>
+    <p>Press the button to confirm your email address and finish setting up your account.</p>
+    <form action="/verify-email" method="POST">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button type="submit" class="btn" style="width: 100%;">Confirm email</button>
+    </form>
+</article>
+{% endblock %}

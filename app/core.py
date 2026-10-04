@@ -22,6 +22,9 @@ _STATIC = Path(__file__).parent / "static"
 def static_v(name: str) -> int:
     return int((_STATIC / name).stat().st_mtime)
 
+from app.antibot import new_challenge
+templates.env.globals["new_challenge"] = new_challenge
+
 templates.env.globals["static_v"] = static_v
 
 oauth = OAuth()
