@@ -1,0 +1,1 @@
+- Add a "Remember me" checkbox (disabled by default) to the login/registration page.
