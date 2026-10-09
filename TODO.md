@@ -1,3 +1,7 @@
-- Add a "Remember me" checkbox (disabled by default) to the login/registration page.
-- Create a "Participate in Development" page.
-- Improve mobile responsiveness: a hamburger menu will replace the standard header on mobile devices.
+# TODOs
+- [ ] Add a "Remember me" checkbox (disabled by default) to the login/registration page.
+- [ ] Create a "Participate in Development" page.
+- [ ] Improve mobile responsiveness: a hamburger menu will replace the standard header on mobile devices.
+- [ ] Remove any mentions of Discord from the site.
+- [ ] Configure Matrix Space.
+- [ ] Add a dark theme and a theme switcher.
