@@ -19,3 +19,16 @@ app/static/uploads/*
 # Local test vaults & databases
 obsidian_vault/
 test.db
+
+# Generated secrets
+.secret_key
+
+# Backups and dumps
+*.sql
+*.dump
+*.sql.gz
+restic-repo/
+
+# Misc
+.pytest_cache/
+.DS_Store
