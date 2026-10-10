@@ -46,7 +46,7 @@ app/
 └── models.py     # SQLAlchemy models
 ```
 
-Documentation articles live in a **separate repository**: <DOCS_REPO_URL>.
+Documentation articles live in a **separate repository**: [askpc-kb](https://github.com/Sapo534/askpc-kb).
 A GitHub webhook syncs them to the site on every push.
 
 ## Running locally
