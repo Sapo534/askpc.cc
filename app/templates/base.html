@@ -13,17 +13,19 @@
 </head>
 <body>
 
-    <header class="site-header">
-        <div class="container header-container">
-            <a href="/" class="logo">askpc.cc</a>
-            <nav class="main-nav">
-                <a href="/kb">Knowledge Base</a>
-                <!-- New Wiki Nav Link -->
-                <a href="/wiki">Wiki</a>
-                <a href="/forum">Forum</a>
-                <a href="/community">Community</a>
-            </nav>
-            <div class="header-actions">
+	<header class="site-header">
+	    <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle menu">
+	    <div class="container header-container">
+		<a href="/" class="logo">askpc.cc</a>
+		<nav class="main-nav">
+                    <a href="/kb">Knowledge Base</a>
+                    <!-- New Wiki Nav Link -->
+                    <a href="/wiki">Wiki</a>
+                    <a href="/forum">Forum</a>
+                    <a href="/community">Community</a>
+           	</nav>
+		<div class="header-actions">
+		<button id="theme-toggle" class="btn btn-outline" type="button" aria-label="Toggle theme" style="padding: 4px 8px; font-size: 0.8rem; margin-right: 6px;">◐</button>
                 {% if user %}
                     <a href="/u/{{ user.username }}" style="font-size: 0.9rem; font-weight: 600; margin-right: 12px; color: {{ user.custom_color if user.custom_color else 'inherit' }}">
                         @{{ user.username }} <span class="badge badge-open" style="font-size:0.65rem;">{{ user.experience_badge }}</span>
@@ -34,8 +36,22 @@
                     <a href="/login" class="btn btn-outline">Log In</a>
                 {% endif %}
             </div>
-        </div>
-    </header>
+		<label for="nav-toggle" class="burger" aria-hidden="true"><span></span></label>
+	    </div>
+	    <nav class="mobile-menu" aria-label="Mobile menu">
+		<button class="theme-toggle" type="button">Toggle theme</button>
+		<a href="/kb">Knowledge Base</a>
+		<a href="/wiki">Wiki</a>
+		<a href="/forum">Forum</a>
+		<a href="/community">Community</a>
+		{% if user %}
+		    <a href="/settings">Settings</a>
+		    <a href="/auth/logout">Log Out</a>
+		{% else %}
+		    <a href="/login">Log In</a>
+		{% endif %}
+	    </nav>
+	</header>
 
     <main class="container" style="padding-top: 30px;">
         {% block content %}{% endblock %}
@@ -48,6 +64,7 @@
                 <a href="/privacy">Privacy</a>
                 <a href="/rules">Rules</a>
 		<a href="/licenses">Licenses</a>
+		<a href="/contribute">Contribute</a>
             </div>
         </div>
     </footer>
@@ -62,5 +79,6 @@
         <div class="wiki-popover-hint">Click to read full definition &rarr;</div>
     </div>
     <script src="/static/wiki.js?v={{ static_v('wiki.js') }}" defer></script>
+    <script src="/static/theme.js?v={{ static_v('theme.js') }}" defer></script>
 </body>
 </html>
