@@ -1,6 +1,7 @@
 
 services:
   web:
+    restart: always
     logging:
       driver: json-file
       options:
@@ -42,7 +43,7 @@ services:
       retries: 5
 
   conduit:
-    image: matrixconduit/matrix-conduit:latest
+    image: matrixconduit/matrix-conduit@sha256:4078e80577ccaaf05290a7bb08badc321a5c44a8c8f5f3dce0fb1ae5a0825e64
     restart: always
     environment:
       CONDUIT_CONFIG: ""
