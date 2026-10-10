@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Participate in Development — askpc.cc{% endblock %}
+{% block content %}
+<div class="static-page">
+    <h1>Participate in Development</h1>
+    <p>askpc.cc is open source, licensed under AGPL-3.0. Help is welcome, and you don't have to write code to give it.</p>
+
+    <h2>Ways to help</h2>
+    <ul>
+        <li><strong>Improve content:</strong> fix mistakes in Knowledge Base articles and Wiki terms, or suggest new ones.</li>
+        <li><strong>Report bugs:</strong> open an issue with steps to reproduce, your browser and device.</li>
+        <li><strong>Suggest features:</strong> open an issue before starting large changes, so we can agree on the idea first.</li>
+        <li><strong>Write code:</strong> the backend is FastAPI + PostgreSQL, the frontend is plain HTML/CSS with minimal JS.</li>
+    </ul>
+
+    <h2>Source code</h2>
+    <p>The repository lives at <a href="https://github.com/Sapo534/askpc.cc">Sapo534/askpc.cc</a>. It has a README with local setup instructions (Docker).</p>
+
+    <h2>Sending a pull request</h2>
+    <ul>
+        <li>Fork the repository and create a branch from <code>main</code>.</li>
+        <li>Keep changes focused: one topic per pull request.</li>
+        <li>Describe what changed and why.</li>
+    </ul>
+
+    <h2>License of contributions</h2>
+    <p>By submitting a contribution you agree that it is licensed under AGPL-3.0, the same as the rest of the project.</p>
+
+    <h2>Questions?</h2>
+    <p>Join the Matrix Space linked in <a href="/community">Community</a>.</p>
+</div>
+{% endblock %}

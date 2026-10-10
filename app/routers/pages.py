@@ -35,7 +35,6 @@ def privacy_page(request: Request, db: Session = Depends(get_db)):
         request=request, name="privacy.html", context={"user": get_current_user(request, db)}
     )
 
-
 @router.get("/rules")
 @router.get("/rules.html")
 def rules_page(request: Request, db: Session = Depends(get_db)):
@@ -50,6 +49,13 @@ def licenses_page(request: Request, db: Session = Depends(get_db)):
         request=request,
         name="licenses.html",
         context={"user": get_current_user(request, db), "packages": load_licenses()},
+    )
+
+@router.get("/contribute")
+@router.get("/contribute.html")
+def privacy_page(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(
+        request=request, name="contribute.html", context={"user": get_current_user(request, db)}
     )
 
 @router.get("/")
