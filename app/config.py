@@ -2,6 +2,7 @@
 import os
 
 MAX_AGE_30_DAYS = 60 * 60 * 24 * 30
+SESSION_MAX_AGE_SHORT = 24 * 60 * 60  # без "Remember me": 24 часа
 
 ALLOWED_HOSTS = {"askpc.cc", "www.askpc.cc", "localhost:8000", "127.0.0.1:8000"}
 CORS_ORIGINS = [

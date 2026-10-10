@@ -63,6 +63,7 @@ def register_page(request: Request):
 @limiter.limit("5/hour")
 def register_user(
     request: Request,
+    remember: bool = Form(False),
     username: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
@@ -108,13 +109,14 @@ def register_user(
     send_verification_email(new_user.email, new_user.username, raw_token)
 
     response = redirect("/")
-    set_auth_cookie(response, new_user)
+    set_auth_cookie(response, new_user, remember)
     return response
 
 @router.post("/auth/login")
 @limiter.limit("5/minute")
 def login_user(
     request: Request,
+    remember: bool = Form(False),
     email: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db),
@@ -129,7 +131,7 @@ def login_user(
         return _render(request, "login.html", error="Invalid email or password.")
 
     response = redirect("/")
-    set_auth_cookie(response, user)
+    set_auth_cookie(response, user, login)
     return response
 
 

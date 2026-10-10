@@ -6,9 +6,11 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from .auth import create_session_token, serializer
-from .config import MAX_AGE_30_DAYS
 from .models import User
 from .services.sponsors import refresh_sponsor_status
+
+from .config import MAX_AGE_30_DAYS, SESSION_MAX_AGE_SHORT
+import time
 
 
 def redirect(url: str) -> RedirectResponse:
@@ -23,8 +25,11 @@ def get_current_user(request: Request, db: Session) -> Optional[User]:
     # Decode without trusting "sv" yet — we need the user row to know
     # their CURRENT session_version to compare against.
     try:
-        data = serializer.loads(token, max_age=MAX_AGE_30_DAYS)
+        data, ts = serializer.loads(token, max_age=MAX_AGE_30_DAYS, return_timestamp=True)
     except Exception:
+        return None
+
+    if not data.get("rem") and time.time() - ts.timestamp() > SESSION_MAX_AGE_SHORT:
         return None
 
     user = db.query(User).filter(User.id == data.get("user_id")).first()
@@ -45,11 +50,11 @@ def require_admin(user: Optional[User]) -> bool:
     return bool(user and user.system_role in ("founder", "co_founder", "admin"))
 
 
-def set_auth_cookie(response: Response, user: User) -> None:
+def set_auth_cookie(response: Response, user: User, remember: bool = False) -> None:
     response.set_cookie(
         key="auth_session",
-        value=create_session_token(user.id, user.session_version),
-        max_age=MAX_AGE_30_DAYS,
+        value=create_session_token(user.id, user.session_version, remember),
+        max_age=MAX_AGE_30_DAYS if remember else None,  # None = сессионная кука
         httponly=True,
         samesite="lax",
         secure=True,

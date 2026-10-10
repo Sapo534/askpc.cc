@@ -35,17 +35,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     )
 
 
-def create_session_token(user_id: int, session_version: str) -> str:
-    return serializer.dumps({"user_id": user_id, "sv": session_version})
+def create_session_token(user_id: int, session_version: str, remember: bool = False) -> str:
+    return serializer.dumps({"user_id": user_id, "sv": session_version, "rem": remember})
 
 
-def verify_session_token(
-    token: str, current_session_version: Optional[str], max_age: int = 60 * 60 * 24 * 30
-) -> Optional[int]:
-    try:
-        data = serializer.loads(token, max_age=max_age)
-    except Exception:
-        return None
-    if not current_session_version or data.get("sv") != current_session_version:
-        return None
-    return data.get("user_id")
+
