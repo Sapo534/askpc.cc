@@ -14,6 +14,7 @@ from ..models import ForumThread, User
 from ..services.email import send_verification_email
 from ..services.files import save_secure_file
 from ..services.tokens import issue_token
+from ..services.colors import normalize_accent_color
 
 router = APIRouter()
 
@@ -71,7 +72,10 @@ def update_settings(
         "founder", "co_founder", "admin",
     ]
     if can_customize and custom_color:
-        current_user.custom_color = custom_color
+        color = normalize_accent_color(custom_color)
+        if color is None:
+            return redirect("/settings?error=Pick+a+color+that+is+readable+on+both+light+and+dark+themes.")
+        current_user.custom_color = color
 
     db.commit()
     return _settings_page(request, current_user, message="Settings updated successfully!")
