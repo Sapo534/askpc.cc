@@ -32,7 +32,15 @@ notify() {
     >/dev/null || echo "could not send alert email" >&2
 }
 
-trap 'rm -rf "$STAGING"/*' EXIT
+CONDUIT_STOPPED=0
+cleanup() {
+  if [ "$CONDUIT_STOPPED" = 1 ]; then
+    docker compose -f "$PROJECT/docker-compose.yml" start conduit >/dev/null 2>&1 || true
+  fi
+  rm -rf "$STAGING"/*
+}
+trap cleanup EXIT
+
 trap 'notify "askpc backup FAILED" "Backup failed on $(hostname) near line $LINENO. See ~/backup.log"' ERR
 
 cd "$PROJECT"
@@ -42,6 +50,15 @@ echo "[$(date -Is)] dumping database"
 docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > "$STAGING/db.dump"
 [ -s "$STAGING/db.dump" ]
 docker compose exec -T db pg_restore --list < "$STAGING/db.dump" > /dev/null
+
+echo "[$(date -Is)] backing up Matrix (conduit stops for a few seconds)"
+docker compose stop conduit
+CONDUIT_STOPPED=1
+docker run --rm -v askpccc_conduit_data:/data:ro -v "$STAGING":/out alpine \
+  tar cf /out/conduit.tar -C /data .
+docker compose start conduit
+CONDUIT_STOPPED=0
+tar tf "$STAGING/conduit.tar" > /dev/null
 
 PATHS=("$STAGING" "$PROJECT/.env")
 for d in app/static/uploads app/static/avatars; do
