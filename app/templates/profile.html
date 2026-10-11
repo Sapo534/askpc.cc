@@ -18,7 +18,7 @@
                 
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
                     {% if profile_user.system_role != 'user' %}
-                        <span class="badge badge-solved" style="background:#111;">{{ profile_user.system_role | upper }}</span>
+                        <span class="badge badge-solved">{{ profile_user.system_role | upper }}</span>
                     {% endif %}
 
                     <span class="badge badge-open">{{ profile_user.experience_badge }}</span>

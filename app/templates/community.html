@@ -9,13 +9,13 @@
         <p style="color: var(--text-secondary); margin-bottom: 25px;">Support askpc.cc to keep the platform ad-free, open-source, and fast.</p>
 
         {% if message %}
-        <div class="notice-banner" style="border-left-color: #008800; color: #008800; margin-bottom: 20px;">
+        <div class="notice-banner" style="border-left-color: var(--ok); color: var(--ok); margin-bottom: 20px;">
             {{ message }}
         </div>
         {% endif %}
 
         {% if error %}
-        <div class="notice-banner" style="border-left-color: #ff0000; color: #ff0000; margin-bottom: 20px;">
+        <div class="notice-banner" style="border-left-color: var(--error); color: var(--error); margin-bottom: 20px;">
             {{ error }}
         </div>
         {% endif %}
@@ -29,7 +29,7 @@
 
             <!-- Progress Bar -->
             <div class="progress-bar" style="height: 12px; background: var(--border-color); border-radius: 6px; overflow: hidden; margin-bottom: 10px;">
-                <div class="progress-fill" style="width: {{ progress_percent }}%; height: 100%; background: #000000;"></div>
+                <div class="progress-fill" style="width: {{ progress_percent }}%; height: 100%; background: var(--text-primary);"></div>
             </div>
 
             <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary);">
@@ -60,7 +60,7 @@
                     </div>
                     <div>
                         <span style="color: var(--text-secondary);">Required Transfer Memo / Note:</span><br>
-                        <strong style="color: #000000; font-size: 1rem;">{{ user.public_id }}</strong>
+                        <strong style="color: var(--text-primary); font-size: 1rem;">{{ user.public_id }}</strong>
                     </div>
                 </div>
 
@@ -68,7 +68,7 @@
                 <form action="/community/sponsor/verify" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
                     <label style="font-size: 0.85rem; font-weight: 600;">Transaction Signature / Hash (TxHash)</label>
                     <input type="text" name="tx_hash" placeholder="Paste Solana Transaction Signature here..." required style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; font-family: var(--font-mono);">
-                    <button type="submit" class="btn" style="background: #000000;">Verify Solana USDT Transfer & Activate ($2/mo)</button>
+                    <button type="submit" class="btn">Verify Solana USDT Transfer & Activate ($2/mo)</button>
                 </form>
             </div>
             {% else %}

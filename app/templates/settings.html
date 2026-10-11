@@ -8,13 +8,13 @@
     <p style="color: var(--text-secondary); margin-bottom: 25px;">Manage your profile, security, and credentials.</p>
 
     {% if message or request.query_params.get("message") %}
-    <div class="notice-banner" style="border-left-color: #008800; color: #008800; margin-bottom: 20px;">
+    <div class="notice-banner" style="border-left-color: var(--ok); color: var(--ok); margin-bottom: 20px;">
         {{ message or request.query_params.get("message") }}
     </div>
     {% endif %}
 
     {% if error or request.query_params.get("error") %}
-    <div class="notice-banner" style="border-left-color: #ff0000; color: #ff0000; margin-bottom: 20px;">
+    <div class="notice-banner" style="border-left-color: var(--error); color: var(--error); margin-bottom: 20px;">
         {{ error or request.query_params.get("error") }}
     </div>
     {% endif %}
@@ -97,7 +97,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); padding: 12px 16px; border-radius: 4px; border: 1px solid var(--border-color);">
                 <span style="font-weight: 600; font-size: 0.9rem;">Connected: @{{ user.github_username }}</span>
                 <form action="/settings/github/unlink" method="POST" style="display: inline;">
-                    <button type="submit" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem; color: #ff0000; border-color: #ff0000;">Unlink</button>
+                    <button type="submit" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem; color: var(--error); border-color: var(--error);">Unlink</button>
                 </form>
             </div>
         {% else %}
@@ -150,7 +150,7 @@
             If you suspect your account was accessed from another device, you can log out everywhere at once. You'll need to log in again here too.
         </p>
         <form action="/settings/security/logout-everywhere" method="POST">
-            <button type="submit" class="btn btn-outline" style="color: #ff0000; border-color: #ff0000;">Log Out Everywhere</button>
+            <button type="submit" class="btn btn-outline" style="color: var(--error); border-color: var(--error);">Log Out Everywhere</button>
         </form>
     </div>
 
