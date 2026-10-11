@@ -5,7 +5,7 @@
 {% block content %}
 <article class="static-page">
     <h1>Privacy Policy</h1>
-    <p>Last updated: October 10, 2026</p>
+    <p>Last updated: October 11, 2026</p>
     <p>askpc.cc is a small independent project run by an individual. Contact: <strong>privacy@askpc.cc</strong></p>
 
     <h2>1. What We Collect</h2>
@@ -15,17 +15,19 @@
         <p><strong>Account:</strong> username, email address, a bcrypt-hashed password (never stored in plain text), optional bio and avatar, karma, and account timestamps. Email verification and password reset tokens are stored hashed. Accounts whose email is never verified may be removed.</p>
         <p><strong>GitHub login (optional):</strong> if you sign in or link with GitHub, we receive your GitHub username, avatar and email address. We never receive your GitHub password.</p>
         <p><strong>Content:</strong> your threads, replies, votes and file attachments, with timestamps. Posts, avatars and attachments are public and reachable by direct URL. Remove metadata such as location from images before uploading them.</p>
+	<p><strong>Matrix (optional):</strong> if you join our Matrix Space, we store your Matrix account (user ID, display name, avatar) and the messages you send there on our own server. Rooms are public and not end-to-end encrypted, and their history is visible to anyone, including people who have not joined. Your website account and your Matrix account are separate.</p>
         <p><strong>Sponsorship (optional):</strong> payments are made in USDT on the Solana network to our wallet. We store the transaction hash and the amount linked to your account. The Solana blockchain publicly records the sender wallet address, the amount and the transaction hash, and we cannot erase these records.</p>
         <p><strong>Not collected:</strong> no fingerprinting, no tracking pixels, no social widgets, no third-party analytics.</p>
     </details>
 
     <h2>2. Cookies</h2>
-    <p>Only essential cookies. No tracking or advertising cookies.</p>
+    <p>Only functional cookies. No tracking or advertising cookies.</p>
     <details>
         <summary>Details</summary>
-        <p><strong>auth_session:</strong> keeps you logged in. HttpOnly, Secure, SameSite=Lax, valid for 30 days or until you log out.</p>
-        <p><strong>session:</strong> a signed technical cookie used during GitHub login to protect against forged requests.</p>
-        <p>Both are strictly necessary, so no cookie banner is shown. Blocking them means you cannot log in.</p>
+	<p><strong>auth_session:</strong> keeps you logged in. HttpOnly, Secure, SameSite=Lax. Without "Remember me" it is valid for at most 24 hours and is dropped when you close the browser; with "Remember me" it is valid for 30 days. It is removed when you log out.</p>
+	<p><strong>session:</strong> a signed technical cookie used during GitHub login to protect against forged requests.</p>
+	<p><strong>theme:</strong> remembers your light or dark theme choice for one year. It contains no personal data.</p>
+	<p>The login cookies are strictly necessary, so no cookie banner is shown. Blocking them means you cannot log in.</p>
     </details>
 
     <h2>3. Who Else Receives Data</h2>
@@ -33,9 +35,10 @@
     <details>
         <summary>Details</summary>
         <p><strong>Resend</strong> (resend.com, using Amazon SES infrastructure) delivers our verification and password reset emails. It receives your email address and the message content, stores them in the United States and keeps delivery logs for 30 days. Transfers outside the EEA are covered by Standard Contractual Clauses.</p>
+	<p><strong>Cloudflare</strong> proxies traffic to askpc.cc, so it processes requests (including IP addresses) in order to deliver and protect the site.</p>
         <p><strong>GitHub</strong> receives a request when you choose to log in with it.</p>
         <p><strong>External images:</strong> if a post embeds an image hosted elsewhere, your browser loads it from that server, which can see your IP address.</p>
-        <p>Our Matrix Space are separate services with their own policies. Joining them is optional.</p>
+        <p><strong>Other Matrix servers:</strong> Matrix is a federated network. Messages in our public rooms are copied to the servers of other participants, and we cannot delete those copies.</p>
         <p>We do not sell your data or share it for advertising.</p>
     </details>
 
@@ -51,6 +54,7 @@
     <p>You can see, fix and delete your data.</p>
     <details>
         <summary>Details</summary>
+	<p><strong>Backups:</strong> we keep encrypted backups for up to 6 months. Data you delete from the live site may remain in those backups until they are rotated out; backups are used only to restore the site after a failure.</p>
         <p><strong>Access and correction:</strong> edit your profile in Settings.</p>
         <p><strong>Deletion and export:</strong> email <strong>privacy@askpc.cc</strong> from the address on your account, and we will delete your account data (username, email, bio, avatar) or send you a copy of what we hold. We respond within 30 days.</p>
         <p>Public posts may be anonymized or removed so threads stay readable. Blockchain records cannot be deleted.</p>
