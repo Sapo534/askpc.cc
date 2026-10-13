@@ -11,7 +11,6 @@ Beginners and pros, Windows, Linux and FreeBSD, iPhone and GrapheneOS: everyone 
 - **Wiki:** a glossary of terms with A-Z navigation. Terms linked anywhere on the site show a hover/tap popover, so you can read a definition without leaving the page.
 - **Forum:** threads, replies, voting and tags, with an anti-toxicity moderation policy (warnings first, escalating mutes).
 - **Accounts:** email + password sign-up with email verification, "Remember me", password reset, logout-everywhere.
-- **Two languages:** English and Russian.
 - **Light and dark theme:** strictly monochrome, follows the system preference and can be switched manually.
 - **Mobile friendly:** responsive layout with a hamburger menu.
 - **Ad-free:** funded by optional sponsorship (colored nickname).
