@@ -131,7 +131,7 @@ def login_user(
         return _render(request, "login.html", error="Invalid email or password.")
 
     response = redirect("/")
-    set_auth_cookie(response, user, login)
+    set_auth_cookie(response, user, remember)
     return response
 
 
