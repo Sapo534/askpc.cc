@@ -4,17 +4,19 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..auth import hash_password, verify_password
-from ..core import templates
+from ..core import limiter, templates
 from ..database import get_db
 from ..deps import get_current_user, redirect
 from ..models import ForumThread, User
+from ..services.colors import normalize_accent_color
 from ..services.email import send_verification_email
 from ..services.files import save_secure_file
 from ..services.tokens import issue_token
-from ..services.colors import normalize_accent_color
+from ..services.validation import email_error, password_error, username_error
 
 router = APIRouter()
 
@@ -93,15 +95,23 @@ def change_username(
     if error:
         return _settings_page(request, current_user, error=error)
 
+    new_username = new_username.strip()
+    error = username_error(new_username)
+    if error:
+        return _settings_page(request, current_user, error=error)
+
     taken = (
         db.query(User)
-        .filter(User.username == new_username, User.id != current_user.id)
+        .filter(
+            func.lower(User.username) == new_username.lower(),
+            User.id != current_user.id,
+        )
         .first()
     )
     if taken:
         return _settings_page(request, current_user, error="Username is already taken.")
 
-    current_user.username = new_username.strip()
+    current_user.username = new_username
     current_user.last_username_change = datetime.utcnow()
     db.commit()
     return _settings_page(request, current_user, message="Username updated successfully!")
@@ -119,25 +129,31 @@ def change_email(
     if error:
         return _settings_page(request, current_user, error=error)
 
+    new_email = new_email.strip().lower()
+    error = email_error(new_email)
+    if error:
+        return _settings_page(request, current_user, error=error)
+
     taken = (
         db.query(User)
-        .filter(User.email == new_email, User.id != current_user.id)
+        .filter(func.lower(User.email) == new_email, User.id != current_user.id)
         .first()
     )
     if taken:
         return _settings_page(request, current_user, error="Email is already registered.")
 
     raw_token, token_hash = issue_token()
-    current_user.email = new_email.strip()
+    current_user.email = new_email
     current_user.is_email_verified = False
     current_user.email_verification_token = token_hash
     current_user.last_email_change = datetime.utcnow()
     db.commit()
-    send_verification_email(new_email.strip(), current_user.username, raw_token)
+    send_verification_email(new_email, current_user.username, raw_token)
     return _settings_page(request, current_user, message="Email updated! Verification link sent.")
 
 
 @router.post("/settings/security/password")
+@limiter.limit("5/hour")
 def change_password(
     request: Request,
     current_password: str = Form(...),
@@ -154,6 +170,10 @@ def change_password(
         return _settings_page(request, current_user, error="Current password is incorrect.")
 
     error = _cooldown_error(current_user.last_password_change, "Password")
+    if error:
+        return _settings_page(request, current_user, error=error)
+
+    error = password_error(new_password)
     if error:
         return _settings_page(request, current_user, error=error)
 

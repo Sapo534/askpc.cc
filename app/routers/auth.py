@@ -15,6 +15,7 @@ from ..deps import redirect, set_auth_cookie, get_current_user
 from ..models import User
 from ..services.email import send_reset_password_email, send_verification_email
 from ..services.tokens import hash_token, issue_token
+from ..services.validation import password_error
 from ..config import REGISTRATION_OPEN
 
 USERNAME_RE = re.compile(r"[A-Za-z0-9_-]{3,32}")
@@ -214,6 +215,10 @@ def process_reset_password(
     user = _find_user_by_reset_token(db, token)
     if not user:
         return _render(request, "forgot_password.html", error="Invalid or expired password reset link.")
+
+    error = password_error(new_password)
+    if error:
+        return _render(request, "reset_password.html", token=token, error=error)
 
     user.hashed_password = hash_password(new_password)
     user.reset_password_token = None
